@@ -1,0 +1,7 @@
+supplement/*
+notebook/*
+outputs/
+*.pyc
+*ipynb_checkpoints*
+*.egg-info
+.vscode/
