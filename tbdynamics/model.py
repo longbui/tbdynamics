@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
+from summer2 import AgeStratification, Overwrite, Multiply
 from jax import numpy as jnp
 import numpy as np
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
 
-from summer2.functions.interpolate import build_sigmoidal_multicurve
+from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 
@@ -50,7 +51,7 @@ def build_base_model(
     description = f"The base model consists of {len(compartments)} states, " \
         f"representing the following states: {', '.join(compartments)}. " \
         f"Only the {infectious_compartments} compartment contributes to the force of infection. " \
-        f"The model is run from {str(start_date.date())} to {str(end_date.date())}. "
+        f"The model is run from {str(start_date)} to {str(end_date)}. "
     
     return model, description
 
@@ -87,19 +88,21 @@ def add_infection(
     origin = "susceptible"
     destination = "early_latent"
     model.add_infection_frequency_flow(process, Parameter("contact_rate"), origin, destination)
-    des1 = "The {process} process moves people from the {origin} " \
+    des1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
 
     process= "infection_from_latent"
+    origin = "late_latent"
+    destination = "early_latent"
     model.add_infection_frequency_flow(
         process,
         Parameter("contact_rate") * Parameter("rr_infection_latent") ,
         "late_latent",
-        "EARLY_LATENT",
+        "early_latent",
     )
-    des2 = "The {process} process moves people from the {origin} " \
+    des2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -108,9 +111,9 @@ def add_infection(
         process,
         Parameter("contact_rate") * Parameter("rr_infection_recovered"),
         "recovered",
-        "EARLY_LATENT",
+        "early_latent",
     )
-    des3 = "The {process} process moves people from the {origin} " \
+    des3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -129,7 +132,7 @@ def add_latency(
         origin,
         destination,
     )
-    des1 = "The {process} process moves people from the {origin} " \
+    des1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -143,7 +146,7 @@ def add_latency(
         origin,
         destination,
     )
-    des2 = "The {process} process moves people from the {origin} " \
+    des2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -156,7 +159,7 @@ def add_latency(
         origin,
         destination,
     )
-    des3 = "The {process} process moves people from the {origin} " \
+    des3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -175,7 +178,7 @@ def add_detection(
         origin,
         destination,
     )
-    return "The {process} process moves people from the {origin} " \
+    return f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -193,7 +196,7 @@ def add_treatment(
         origin,
         destination,
     )
-    des1 = "The {process} process moves people from the {origin} " \
+    des1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
@@ -205,7 +208,7 @@ def add_treatment(
         treatment_death_rate,
         "on_treatment",
     )
-    des2 = "The {process} process moves people from the {origin} " \
+    des2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the death, " \
         "under the frequency-dependent transmission assumption. "
     
@@ -219,7 +222,7 @@ def add_treatment(
         "on_treatment",
         "infectious",
     )
-    des3 = "The {process} process moves people from the {origin} " \
+    des3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
     
@@ -228,15 +231,18 @@ def add_treatment(
 def add_entry_flow(
         model: CompartmentalModel
 ):
+    process = "birth"
     birth_rates = load_pop_data()[1]
-    birth_rates.loc[:,'value'] /= 1000.0  # Birth rates are provided / 1000 population
-    tfunc = build_sigmoidal_multicurve(birth_rates.loc[:,'year'], birth_rates[:,'value'])
-    crude_birth_rate = Function(tfunc, [Time])
+    birth_rates.iloc[:,1] /= 1000.0  # Birth rates are provided / 1000 population
+    crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.iloc[:,0], birth_rates.iloc[:,1])
     model.add_crude_birth_flow(
         "birth",
         crude_birth_rate,
         "susceptible",
     )
+    return f"The {process} process add newborns to the model " \
+        
+    
 
 def add_natural_death_flow(
     model: CompartmentalModel 
@@ -252,5 +258,59 @@ def add_infect_death(
         Parameter("infect_death_rate_unstratified"),
         "infectious",
     )
+
+def implement_acf(
+    model: CompartmentalModel,
+    time_variant_screening_rate,
+    acf_screening_sensitivity    
+):
+            # Universal active case funding is applied
+    times = list(Parameter(time_variant_screening_rate))
+    vals = [
+                v * Parameter(acf_screening_sensitivity)
+                for v in Parameter(time_variant_screening_rate)
+            ]
+    acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
+
+    model.add_transition_flow(
+        "acf_detection",
+        acf_detection_rate,
+        "infectious",
+        "on_treatment",
+    )
      
+def add_age_strat(
+    compartments,
+    age_strata,
+    matrix
+) -> tuple:
+    age_breaks = Parameter("age_breakpoints")
+    strat = AgeStratification("age", age_breaks, compartments)
+    matrix *= 365.251
+    strat.set_mixing_matrix(matrix)
+
+    death_rates_by_age, death_rate_years = get_death_rates_by_agegroup(age_breaks, iso3)
+    universal_death_funcs, death_adjs = {}, {}
+    for age in age_breaks:
+        universal_death_funcs[age] = get_sigmoidal_interpolation_function(death_rate_years, death_rates_by_age[age])
+ 
+        death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
+    strat.set_flow_adjustments("universal_death", death_adjs)
+
+def build_polymod_matrix(
+        age_strata
+):
+    values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
+          356.13449939],
+        [ 165.78966683,  881.63067677,  532.84120554,  550.75979227,
+          285.62836724],
+        [ 231.75164317,  311.38983781,  915.52884268,  673.30894113,
+          664.14577066],
+        [ 141.94492435,  310.88835505,  786.13676958, 1134.31076003,
+          938.03403291],
+        [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
+         1763.57657715]]
+    matrix = np.array(values).T
+    matrix_fig = px.imshow(matrix, x=age_strata, y=age_strata)
+    return matrix, matrix_fig
 
