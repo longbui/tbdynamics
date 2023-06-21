@@ -11,6 +11,7 @@ from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 
 from .inputs import *
+from .utils import *
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 SUPPLEMENT_PATH = BASE_PATH / "supplement"
@@ -284,16 +285,12 @@ def add_age_strat(
     age_strata,
     matrix
 ) -> tuple:
-    age_breaks = Parameter("age_breakpoints")
-    strat = AgeStratification("age", age_breaks, compartments)
-    matrix *= 365.251
+    age_strata = Parameter("age_breakpoints")
+    strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
-
-    death_rates_by_age, death_rate_years = get_death_rates_by_agegroup(age_breaks, iso3)
     universal_death_funcs, death_adjs = {}, {}
-    for age in age_breaks:
+    for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(death_rate_years, death_rates_by_age[age])
- 
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
 
