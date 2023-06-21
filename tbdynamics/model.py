@@ -108,11 +108,13 @@ def add_infection(
         "under the frequency-dependent transmission assumption. "
 
     process = "infection_from_recovered"
+    origin = "recovered"
+    destination = "early_latent"
     model.add_infection_frequency_flow(
         process,
         Parameter("contact_rate") * Parameter("rr_infection_recovered"),
-        "recovered",
-        "early_latent",
+        origin,
+        destination,
     )
     des3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
@@ -188,11 +190,11 @@ def add_treatment(
 ) -> tuple:
     #Treatment recovery, releapse, death flows.
     treatment_recovery_rate = 1.0 # will be adjusted later
-    process = "early_activation"
+    process = "treatment_recovery"
     origin = "on_treatment"
     destination = "recovered"
     model.add_transition_flow(
-        "early_activation",
+        process,
         treatment_recovery_rate,
         origin,
         destination,
@@ -202,7 +204,7 @@ def add_treatment(
         "under the frequency-dependent transmission assumption. "
 
     treatment_death_rate = 1.0
-    process = "death_flow"
+    process = "treatment_death"
     origin = "on_treatment"
     model.add_death_flow(
         process,
@@ -243,7 +245,6 @@ def add_entry_flow(
     )
     return f"The {process} process add newborns to the model " \
         
-    
 
 def add_natural_death_flow(
     model: CompartmentalModel 
@@ -282,10 +283,11 @@ def implement_acf(
      
 def add_age_strat(
     compartments,
+    infectious,
     age_strata,
-    matrix
-) -> tuple:
-    age_strata = Parameter("age_breakpoints")
+    matrix,
+    params
+):
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
@@ -293,8 +295,74 @@ def add_age_strat(
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(death_rate_years, death_rates_by_age[age])
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
+    for flow_name, latency_params in params['age_stratification'].items():
+        #is_activation_flow = flow_name in ["late_activation"]
+        #if is_activation_flow:
+        adjs = {str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])]) for t in age_strata}
+        strat.set_flow_adjustments(flow_name, adjs)
 
-def build_polymod_matrix(
+    inf_switch_age = params['age_infectiousness_switch']
+    for comp in infectious:
+        inf_adjs = {}
+        for i, age_low in enumerate(age_strata):
+            infectiousness = 1.0 if age_low == age_strata[-1] else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
+
+            # Infectiousness multiplier for treatment (ideally move to model.py, but has to be set in stratification with current summer)
+            if comp == 'on_treatment':
+                infectiousness *= Parameter("on_treatment_infect_multiplier")
+
+            inf_adjs[str(age_low)] = Multiply(infectiousness)
+
+        strat.add_infectiousness_adjustments(comp, inf_adjs)
+
+    # Get the time-varying treatment success proportions
+    time_variant_tsr = get_sigmoidal_interpolation_function(
+            list(params['time_variant_tsr'].keys()), list(params['time_variant_tsr'].values())
+        )
+     
+
+    # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
+    treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = {}, {}, {}
+    for age in age_strata:
+        death_rate = universal_death_funcs[age]
+        treatment_outcomes = Function(
+            get_treatment_outcomes,
+            [
+                params['treatment_duration'],
+                params['prop_death_among_negative_tx_outcome'],
+                death_rate,
+                time_variant_tsr,
+            ],
+        )
+        treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
+        treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
+        treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
+    strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
+    strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
+    strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
+
+    #Add BCG effect without stratifying for BCG
+    bcg_multiplier_dict = {'0': 0.3, '5': 0.3, '15': 0.7375, '35': 1.0, '50': 1.0} # Ragonnet et al. (IJE, 2020)
+    bcg_coverage_func = get_sigmoidal_interpolation_function(
+        list(params['time_variant_bcg_perc'].keys()),
+        list(params['time_variant_bcg_perc'].values()),
+    )
+    print(bcg_coverage_func)
+    bcg_adjs = {}
+    # for age, multiplier in bcg_multiplier_dict.items():
+    #     if multiplier < 1.0:
+    #         bcg_adjs[str(age)] = Multiply(
+    #             Function(bcg_multiplier_func, [Time, bcg_coverage_func, multiplier, get_average_age_for_bcg(age, age_strata)])
+    #         )
+    #     else:
+    #         bcg_adjs[str(age)] = None
+    # print(bcg_adjs)
+
+    # strat.set_flow_adjustments("infection", bcg_adjs)
+
+    return strat
+
+def build_contact_matrix(
         age_strata
 ):
     values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
@@ -308,6 +376,5 @@ def build_polymod_matrix(
         [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
          1763.57657715]]
     matrix = np.array(values).T
-    matrix_fig = px.imshow(matrix, x=age_strata, y=age_strata)
-    return matrix, matrix_fig
+    return matrix
 
