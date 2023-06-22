@@ -37,10 +37,10 @@ def get_average_age_for_bcg(agegroup, age_breakpoints):
         return 0.5 * (age_breakpoints[agegroup_idx] + age_breakpoints[agegroup_idx + 1])
 
 
-def bcg_multiplier_func(t, tfunc, fmultiplier, faverage_age):
-    return 1.0 - tfunc(t - faverage_age) / 100.0 * (1.0 - fmultiplier)
+def bcg_multiplier_func(tfunc, fmultiplier):
+    return 1.0 - tfunc / 100.0 * (1.0 - fmultiplier)
 
-def tanh_based_scaleup(shape, inflection_time, start_asymptote, end_asymptote=1.0):
+def tanh_based_scaleup(t, shape, inflection_time, start_asymptote, end_asymptote=1.0):
     """
     return the function t: (1 - sigma) / 2 * tanh(b * (a - c)) + (1 + sigma) / 2
     :param shape: shape parameter
@@ -51,8 +51,6 @@ def tanh_based_scaleup(shape, inflection_time, start_asymptote, end_asymptote=1.
     """
     assymp_range = end_asymptote - start_asymptote
     return (jnp.tanh(shape * (t - inflection_time)) / 2.0 + 0.5) * assymp_range + start_asymptote
-
-    return tanh_scaleup
 
 def make_linear_curve(x_0, x_1, y_0, y_1):
     assert x_1 > x_0
@@ -72,3 +70,5 @@ def get_latency_with_diabetes(
     ):
     diabetes_scale_up = tanh_based_scaleup(t, shape=0.05, inflection_time=1980, start_asymptote=0.0, end_asymptote=1.0)
     return (1.0 - diabetes_scale_up(t) * prop_diabetes * (1.0 - rr_progression_diabetes)) * previous_progression_rate
+
+

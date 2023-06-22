@@ -7,11 +7,13 @@ import plotly.express as px
 from pathlib import Path
 
 from summer2.functions.time import get_sigmoidal_interpolation_function
+from summer2.functions.interpolate import build_sigmoidal_multicurve
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 
 from .inputs import *
 from .utils import *
+from .outputs import *
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 SUPPLEMENT_PATH = BASE_PATH / "supplement"
@@ -62,17 +64,17 @@ def get_pop_data():
 
 def set_starting_conditions(
     model,
-    start_population_size,
-    seed,
 ) -> str:
+    start_pop = Parameter("start_population_size") 
+    seed = Parameter("infectious_seed")
     init_pop = {
         "infectious": seed,
-        "susceptible": start_population_size - seed,
+        "susceptible": start_pop - seed,
     }
 
     # Assign to the model
     model.set_initial_population(init_pop)
-    return f"The simulation starts with {str(round(start_population_size / 1e6, 3))} million fully susceptible persons, " \
+    return f"The simulation starts with {start_pop} million fully susceptible persons, " \
         "with infectious persons introduced later through strain seeding as described below. "
 
 def add_infection(
@@ -127,8 +129,8 @@ def add_latency(
 ) -> tuple:
     stabilisation_rate = 1.0
     process =  "stabilisation"
-    origin = "susceptible"
-    destination = "early_latent"
+    origin = "early_latent"
+    destination = "late_latent"
     model.add_transition_flow(
         process,
         stabilisation_rate,
@@ -141,8 +143,8 @@ def add_latency(
 
     early_activation_rate = 1.0
     process = "early_activation"
-    origin = "susceptible"
-    destination = "early_latent"
+    origin = "early_latent"
+    destination = "infectious"
     model.add_transition_flow(
         process,
         early_activation_rate,
@@ -169,10 +171,10 @@ def add_latency(
     return des1, des2, des3
 
 def add_detection(
-        model: CompartmentalModel,
+    model: CompartmentalModel,
 ):
     detection_rate = 1.0 # later adjusted by organ
-    process = "early_activation"
+    process = "detection"
     origin = "infectious"
     destination = "on_treatment"
     model.add_transition_flow(
@@ -185,8 +187,8 @@ def add_detection(
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
-def add_treatment(
-        model : CompartmentalModel
+def add_treatment_related_outcomes(
+    model : CompartmentalModel
 ) -> tuple:
     #Treatment recovery, releapse, death flows.
     treatment_recovery_rate = 1.0 # will be adjusted later
@@ -232,24 +234,24 @@ def add_treatment(
     return des1, des2, des3
 
 def add_entry_flow(
-        model: CompartmentalModel
+    model: CompartmentalModel
 ):
     process = "birth"
     birth_rates = load_pop_data()[1]
-    birth_rates.iloc[:,1] /= 1000.0  # Birth rates are provided / 1000 population
     crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.iloc[:,0], birth_rates.iloc[:,1])
+    print(crude_birth_rate)
     model.add_crude_birth_flow(
         "birth",
         crude_birth_rate,
         "susceptible",
     )
-    return f"The {process} process add newborns to the model " \
+    return f"The {process} process add newborns to the model"
         
 
 def add_natural_death_flow(
     model: CompartmentalModel 
 ):
-    universal_death_rate = 1.0
+    universal_death_rate = 0.21
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
 
 def add_infect_death(
@@ -343,28 +345,30 @@ def add_age_strat(
 
     #Add BCG effect without stratifying for BCG
     bcg_multiplier_dict = {'0': 0.3, '5': 0.3, '15': 0.7375, '35': 1.0, '50': 1.0} # Ragonnet et al. (IJE, 2020)
-    bcg_coverage_func = get_sigmoidal_interpolation_function(
-        list(params['time_variant_bcg_perc'].keys()),
-        list(params['time_variant_bcg_perc'].values()),
-    )
-    print(bcg_coverage_func)
     bcg_adjs = {}
-    # for age, multiplier in bcg_multiplier_dict.items():
-    #     if multiplier < 1.0:
-    #         bcg_adjs[str(age)] = Multiply(
-    #             Function(bcg_multiplier_func, [Time, bcg_coverage_func, multiplier, get_average_age_for_bcg(age, age_strata)])
-    #         )
-    #     else:
-    #         bcg_adjs[str(age)] = None
-    # print(bcg_adjs)
+    for age, multiplier in bcg_multiplier_dict.items():
+        if multiplier < 1.0:
+            bcg_adjs[str(age)] = Multiply(
+                Function(
+                bcg_multiplier_func, 
+                [
+                get_sigmoidal_interpolation_function(
+                                                    list(params['time_variant_bcg_perc'].keys()),
+                                                    list(params['time_variant_bcg_perc'].values()), 
+                                                    Time - get_average_age_for_bcg(age, age_strata)
+                                                ),
+                multiplier
+                ])
+            )
+        else:
+            bcg_adjs[str(age)] = None
 
-    # strat.set_flow_adjustments("infection", bcg_adjs)
+
+    strat.set_flow_adjustments("infection", bcg_adjs)
 
     return strat
 
-def build_contact_matrix(
-        age_strata
-):
+def build_contact_matrix():
     values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
           356.13449939],
         [ 165.78966683,  881.63067677,  532.84120554,  550.75979227,
@@ -377,4 +381,53 @@ def build_contact_matrix(
          1763.57657715]]
     matrix = np.array(values).T
     return matrix
+
+def request_output(
+        model: CompartmentalModel,
+        compartments,
+        latent_compartments,
+        infectious_compartments
+):
+    """
+    Get the applicable outputs
+    """
+    model.request_output_for_compartments(
+        "total_population", compartments, save_results=True
+    )
+    model.request_output_for_compartments(
+        "latent_population_size", latent_compartments, save_results=True
+    )
+    # latency
+    model.request_function_output("percentage_latent", 100.0 * DerivedOutput("latent_population_size") / DerivedOutput("total_population"))
+
+    # Prevalence
+    model.request_output_for_compartments("infectious_population_size", infectious_compartments, save_results=True)
+    model.request_function_output("prevalence_infectious", 1e5 * DerivedOutput("infectious_population_size") / DerivedOutput("total_population"),)
+
+    # Death
+    model.request_output_for_flow("mortality_infectious_raw", "infect_death", save_results=True)
+
+    sources = ["mortality_infectious_raw"]
+    request_aggregation_output(model, "mortality_raw", sources, save_results=False)
+    model.request_cumulative_output("cumulative_deaths", "mortality_raw", start_time=2000)
+
+    # Disease incidence
+    request_flow_output(model,"incidence_early_raw", "early_activation", save_results=False)
+    request_flow_output(model,"incidence_late_raw", "late_activation", save_results=False)
+    sources = ["incidence_early_raw", "incidence_late_raw"]
+    request_aggregation_output(model,"incidence_raw", sources, save_results=False)
+    model.request_cumulative_output("cumulative_diseased", "incidence_raw", start_time=2000)
+
+    # Normalise incidence so that it is per unit time (year), not per timestep
+    request_normalise_flow_output(model, "incidence_early", "incidence_early_raw")
+    request_normalise_flow_output(model, "incidence_late", "incidence_late_raw")
+    request_normalise_flow_output(model, "incidence_norm", "incidence_raw", save_results=False)
+    model.request_function_output(
+        "incidence", 1e5 * DerivedOutput("incidence_norm") / DerivedOutput("total_population")
+    )
+    request_flow_output(model, "passive_notifications_raw", "detection", save_results=False)
+    # request notifications
+    request_normalise_flow_output(model, "notifications", "passive_notifications_raw")
+
+
 
