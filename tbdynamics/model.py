@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
 from jax import numpy as jnp
 import numpy as np
@@ -6,8 +6,7 @@ import pandas as pd
 import plotly.express as px
 from pathlib import Path
 
-from summer2.functions.time import get_sigmoidal_interpolation_function
-from summer2.functions.interpolate import build_sigmoidal_multicurve
+from summer2.functions.time import get_sigmoidal_interpolation_function, get_linear_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 
@@ -31,11 +30,13 @@ def build_base_model(
     infectious_compartments,
     start_date,
     end_date,
+    step
 ) -> tuple:
     model = CompartmentalModel(
         times=(start_date, end_date),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
+        timestep=step
     )
 
     description = f"The base model consists of {len(compartments)} states, " \
@@ -82,7 +83,7 @@ def add_natural_death_flow(
     model: CompartmentalModel 
 ) -> str:
     process = "universal_death"
-    universal_death_rate = 0.21
+    universal_death_rate = 1.0
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
     return f"The {process} process add universal death to the model"
 
@@ -272,25 +273,32 @@ def add_infect_death(
     )
     return f"The {process} process moves people from the {origin}"
 
-def implement_acf(
+def add_acf(
     model: CompartmentalModel,
-    time_variant_screening_rate,
-    acf_screening_sensitivity    
-):
+    fixed_params
+) -> str:
             # Universal active case funding is applied
-    times = list(Parameter(time_variant_screening_rate))
+    times = list(fixed_params["time_variant_screening_rate"])
     vals = [
-                v * Parameter(acf_screening_sensitivity)
-                for v in Parameter(time_variant_screening_rate)
+                v * fixed_params["acf_screening_sensitivity"]
+                for v in fixed_params["time_variant_screening_rate"].values()
             ]
     acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
+    print(acf_detection_rate)
 
+    process = "acf_detection"
+    origin = "infectious"
+    destination = "on_treatment"
     model.add_transition_flow(
         "acf_detection",
         acf_detection_rate,
         "infectious",
         "on_treatment",
     )
+
+    return f"The {process} process moves people from the {origin} " \
+        f"compartment to the {destination}, " \
+        "under the frequency-dependent transmission assumption. "
      
 def add_age_strat(
     compartments,
@@ -306,12 +314,23 @@ def add_age_strat(
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(death_rate_years, death_rates_by_age[age])
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
+    # Set age-specific late activation rate
     for flow_name, latency_params in fixed_params['age_stratification'].items():
         #is_activation_flow = flow_name in ["late_activation"]
         #if is_activation_flow:
         adjs = {str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])]) for t in age_strata}
         strat.set_flow_adjustments(flow_name, adjs)
 
+    #inflate for diabetes
+        is_activation_flow = flow_name in ["early_activation", "late_activation"]
+        if fixed_params['inflate_reactivation_for_diabetes'] and is_activation_flow:
+                # Inflate reactivation rate to account for diabetes.
+                for age in age_strata:
+                    adjs[age] = Function(get_latency_with_diabetes,[Time,
+                        fixed_params["prop_diabetes"][age],
+                        adjs[str(age)],
+                        Parameter("rr_progression_diabetes")]
+                    )
     inf_switch_age = fixed_params['age_infectiousness_switch']
     for comp in infectious:
         inf_adjs = {}
@@ -422,10 +441,8 @@ def add_organ_strat(
     for organ_stratum in ORGAN_STRATA:
         #adj_vals = sensitivity[organ_stratum]
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
-        detection_adjs[organ_stratum] = Parameter("cdr_adjustment") * Function(detection_func,[
-                                                                                get_sigmoidal_interpolation_function(list(fixed_params["time_variant_tb_screening_rate"].keys()), 
-                                                                                list(fixed_params["time_variant_tb_screening_rate"].values())), 
-                                                                                fixed_params[param_name]])
+        detection_adjs[organ_stratum] = Parameter("cdr_adjustment") * get_sigmoidal_interpolation_function(list(fixed_params["time_variant_tb_screening_rate"].keys()), 
+                                                                                list(fixed_params["time_variant_tb_screening_rate"].values())) * fixed_params[param_name]
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)        
@@ -459,7 +476,8 @@ def request_output(
         model: CompartmentalModel,
         compartments,
         latent_compartments,
-        infectious_compartments
+        infectious_compartments,
+        implement_acf = True
 ):
     """
     Get the applicable outputs
@@ -499,8 +517,14 @@ def request_output(
         "incidence", 1e5 * DerivedOutput("incidence_norm") / DerivedOutput("total_population")
     )
     request_flow_output(model, "passive_notifications_raw", "detection", save_results=False)
+    if implement_acf:
+        request_flow_output(model,"active_notifications_raw", "acf_detection", save_results=False)
+        sources = ["passive_notifications_raw", "active_notifications_raw"]
+    else:
+        sources = ["passive_notifications_raw"] 
+    request_aggregation_output("notifications_raw", sources, save_results=False)
     # request notifications
-    request_normalise_flow_output(model, "notifications", "passive_notifications_raw")
+    request_normalise_flow_output(model, "notifications", "notifications_raw")
 
 
 
