@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from summer2 import AgeStratification, Overwrite, Multiply
+from summer2 import AgeStratification, Overwrite, Multiply, Stratification
 from jax import numpy as jnp
 import numpy as np
 import pandas as pd
@@ -31,24 +31,11 @@ def build_base_model(
     infectious_compartments,
     start_date,
     end_date,
-    time_step,
 ) -> tuple:
-    """
-    Args:
-        ref_date: Arbitrary reference date
-        compartments: Starting unstratified compartments
-        start_date: Start date for analysis
-        end_date: End date for analysis
-
-    Returns:
-        Simple model starting point for extension through the following functions
-        with text description of the process.
-    """
     model = CompartmentalModel(
         times=(start_date, end_date),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
-        timestep=time_step,
     )
 
     description = f"The base model consists of {len(compartments)} states, " \
@@ -60,22 +47,44 @@ def build_base_model(
 
 def get_pop_data():
     pop_data = load_pop_data()
-    description = f"For estimates of the Camau" 
+    description = f"For demographics estimates of the Camau" 
+    return description, pop_data
 
 def set_starting_conditions(
     model,
 ) -> str:
     start_pop = Parameter("start_population_size") 
-    seed = Parameter("infectious_seed")
     init_pop = {
-        "infectious": seed,
-        "susceptible": start_pop - seed,
+        "infectious": 1,
+        "susceptible": start_pop - 1,
     }
 
     # Assign to the model
     model.set_initial_population(init_pop)
     return f"The simulation starts with {start_pop} million fully susceptible persons, " \
         "with infectious persons introduced later through strain seeding as described below. "
+
+def add_entry_flow(
+    model: CompartmentalModel
+) -> str:
+    process = "birth"
+    birth_rates = load_pop_data()[1]
+    destination =  "susceptible"
+    crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.iloc[:,0], birth_rates.iloc[:,1])
+    model.add_crude_birth_flow(
+        process,
+        crude_birth_rate,
+        destination,
+    )
+    return f"The {process} process add newborns to the {destination} compartment of the model"
+
+def add_natural_death_flow(
+    model: CompartmentalModel 
+) -> str:
+    process = "universal_death"
+    universal_death_rate = 0.21
+    model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
+    return f"The {process} process add universal death to the model"
 
 def add_infection(
     model: CompartmentalModel,
@@ -127,7 +136,8 @@ def add_infection(
 def add_latency(
     model: CompartmentalModel,
 ) -> tuple:
-    stabilisation_rate = 1.0
+    # add stabilization process 
+    stabilisation_rate = 1.0 # later adjusted by age group
     process =  "stabilisation"
     origin = "early_latent"
     destination = "late_latent"
@@ -140,8 +150,8 @@ def add_latency(
     des1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
-
-    early_activation_rate = 1.0
+    # Add the early activattion process 
+    early_activation_rate = 1.0 # later adjusted by age group
     process = "early_activation"
     origin = "early_latent"
     destination = "infectious"
@@ -172,7 +182,7 @@ def add_latency(
 
 def add_detection(
     model: CompartmentalModel,
-):
+) -> str:
     detection_rate = 1.0 # later adjusted by organ
     process = "detection"
     origin = "infectious"
@@ -191,7 +201,7 @@ def add_treatment_related_outcomes(
     model : CompartmentalModel
 ) -> tuple:
     #Treatment recovery, releapse, death flows.
-    treatment_recovery_rate = 1.0 # will be adjusted later
+    treatment_recovery_rate = 1.0 #  later adjusted by organ
     process = "treatment_recovery"
     origin = "on_treatment"
     destination = "recovered"
@@ -205,7 +215,7 @@ def add_treatment_related_outcomes(
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
-    treatment_death_rate = 1.0
+    treatment_death_rate = 1.0  #  later adjusted by age
     process = "treatment_death"
     origin = "on_treatment"
     model.add_death_flow(
@@ -217,7 +227,7 @@ def add_treatment_related_outcomes(
         f"compartment to the death, " \
         "under the frequency-dependent transmission assumption. "
     
-    relapse_rate = 1.0
+    relapse_rate = 1.0 #  later adjusted by age
     process = "early_activation"
     origin = "on_treatment"
     destination = "infectious"
@@ -233,35 +243,34 @@ def add_treatment_related_outcomes(
     
     return des1, des2, des3
 
-def add_entry_flow(
-    model: CompartmentalModel
-):
-    process = "birth"
-    birth_rates = load_pop_data()[1]
-    crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.iloc[:,0], birth_rates.iloc[:,1])
-    print(crude_birth_rate)
-    model.add_crude_birth_flow(
-        "birth",
-        crude_birth_rate,
-        "susceptible",
+def add_self_recovery(
+        model: CompartmentalModel
+) -> str: 
+    process = "self_recovery"
+    origin = "on_treatment"
+    destination = "recovered"
+    model.add_transition_flow(
+        "self_recovery",
+        0.2,
+        origin,
+        destination,
     )
-    return f"The {process} process add newborns to the model"
+    return f"The {process} process moves people from the {origin} " \
+        f"compartment to the {destination}, " \
+        "under the frequency-dependent transmission assumption. "
+     
         
-
-def add_natural_death_flow(
-    model: CompartmentalModel 
-):
-    universal_death_rate = 0.21
-    model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
-
 def add_infect_death(
     model: CompartmentalModel 
 ):
+    process = "infect_death"
+    origin = "infectious"
     model.add_death_flow(
         "infect_death",
         Parameter("infect_death_rate_unstratified"),
         "infectious",
     )
+    return f"The {process} process moves people from the {origin}"
 
 def implement_acf(
     model: CompartmentalModel,
@@ -288,7 +297,7 @@ def add_age_strat(
     infectious,
     age_strata,
     matrix,
-    params
+    fixed_params
 ):
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
@@ -297,19 +306,19 @@ def add_age_strat(
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(death_rate_years, death_rates_by_age[age])
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
-    for flow_name, latency_params in params['age_stratification'].items():
+    for flow_name, latency_params in fixed_params['age_stratification'].items():
         #is_activation_flow = flow_name in ["late_activation"]
         #if is_activation_flow:
         adjs = {str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])]) for t in age_strata}
         strat.set_flow_adjustments(flow_name, adjs)
 
-    inf_switch_age = params['age_infectiousness_switch']
+    inf_switch_age = fixed_params['age_infectiousness_switch']
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
             infectiousness = 1.0 if age_low == age_strata[-1] else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
 
-            # Infectiousness multiplier for treatment (ideally move to model.py, but has to be set in stratification with current summer)
+            # Infectiousness multiplier for treatment
             if comp == 'on_treatment':
                 infectiousness *= Parameter("on_treatment_infect_multiplier")
 
@@ -319,7 +328,7 @@ def add_age_strat(
 
     # Get the time-varying treatment success proportions
     time_variant_tsr = get_sigmoidal_interpolation_function(
-            list(params['time_variant_tsr'].keys()), list(params['time_variant_tsr'].values())
+            list(fixed_params['time_variant_tsr'].keys()), list(fixed_params['time_variant_tsr'].values())
         )
      
 
@@ -330,8 +339,8 @@ def add_age_strat(
         treatment_outcomes = Function(
             get_treatment_outcomes,
             [
-                params['treatment_duration'],
-                params['prop_death_among_negative_tx_outcome'],
+                fixed_params['treatment_duration'],
+                fixed_params['prop_death_among_negative_tx_outcome'],
                 death_rate,
                 time_variant_tsr,
             ],
@@ -353,8 +362,8 @@ def add_age_strat(
                 bcg_multiplier_func, 
                 [
                 get_sigmoidal_interpolation_function(
-                                                    list(params['time_variant_bcg_perc'].keys()),
-                                                    list(params['time_variant_bcg_perc'].values()), 
+                                                    list(fixed_params['time_variant_bcg_perc'].keys()),
+                                                    list(fixed_params['time_variant_bcg_perc'].values()), 
                                                     Time - get_average_age_for_bcg(age, age_strata)
                                                 ),
                 multiplier
@@ -365,22 +374,86 @@ def add_age_strat(
 
 
     strat.set_flow_adjustments("infection", bcg_adjs)
+    des = "The age stratification adjusts following process: (1) The universal death by age group. The data was taken from autumn's database." \
+         " (2) The early and late activation" \
+         "(3) Age infectioness switched at age of 15" \
+         "(4) Infectiousness multiplier for treatment" \
+         "(5) Treatment outcomes: relapse, recovery and death"
 
-    return strat
+    return strat, des
 
-def build_contact_matrix():
-    values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
-          356.13449939],
-        [ 165.78966683,  881.63067677,  532.84120554,  550.75979227,
-          285.62836724],
-        [ 231.75164317,  311.38983781,  915.52884268,  673.30894113,
-          664.14577066],
-        [ 141.94492435,  310.88835505,  786.13676958, 1134.31076003,
-          938.03403291],
-        [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
-         1763.57657715]]
-    matrix = np.array(values).T
-    return matrix
+
+def add_organ_strat(
+        fixed_params: dict,
+        infectious_compartments: list, 
+    )-> Stratification:
+    
+    ORGAN_STRATA = [
+        "smear_positive",
+        "smear_negative",
+        "extrapulmonary",
+    ]
+    strat = Stratification("organ", ORGAN_STRATA, infectious_compartments)
+    # Better if do in loop
+    # Define infectiousness adjustment by organ status
+    inf_adj = {}
+    inf_adj["smear_positive"] = Multiply(1)
+    inf_adj["smear_negative"] = Multiply(fixed_params["smear_negative_infect_multiplier"])
+    inf_adj["extrapulmonary"] = Multiply(fixed_params["extrapulmonary_infect_multiplier"])
+    for comp in infectious_compartments:
+        strat.add_infectiousness_adjustments(comp, inf_adj)
+
+    #Define different natural history (infection death) by organ status
+    infect_death_adjs = {}
+    infect_death_adjs["smear_positive"] = Overwrite(Parameter("smear_positive_death_rate"))
+    infect_death_adjs["smear_negative"] = Overwrite(Parameter("smear_negative_death_rate"))
+    infect_death_adjs["extrapulmonary"] = Overwrite(Parameter("smear_negative_death_rate"))
+    strat.set_flow_adjustments("infect_death", infect_death_adjs)
+
+    #Define different natural history (self recovery) by organ status
+    self_recovery_adjs = {}
+    self_recovery_adjs["smear_positive"] = Overwrite(Parameter("smear_positive_self_recovery"))
+    self_recovery_adjs["smear_negative"] = Overwrite(Parameter("smear_negative_self_recovery"))
+    self_recovery_adjs["extrapulmonary"] = Overwrite(Parameter("smear_negative_self_recovery"))
+    strat.set_flow_adjustments("self_recovery", self_recovery_adjs)
+
+    # Define different detection rates by organ status.
+    detection_adjs = {}
+    for organ_stratum in ORGAN_STRATA:
+        #adj_vals = sensitivity[organ_stratum]
+        param_name = f"passive_screening_sensitivity_{organ_stratum}"
+        detection_adjs[organ_stratum] = Parameter("cdr_adjustment") * Function(detection_func,[
+                                                                                get_sigmoidal_interpolation_function(list(fixed_params["time_variant_tb_screening_rate"].keys()), 
+                                                                                list(fixed_params["time_variant_tb_screening_rate"].values())), 
+                                                                                fixed_params[param_name]])
+
+    detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
+    strat.set_flow_adjustments("detection", detection_adjs)        
+    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
+    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
+    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
+        
+
+    # Adjust the progression rates by organ using the requested incidence proportions
+    splitting_proportions = {
+        "smear_positive": fixed_params['incidence_props_pulmonary']
+        * fixed_params['incidence_props_smear_positive_among_pulmonary'],
+        "smear_negative": fixed_params['incidence_props_pulmonary']
+        * (1.0 - fixed_params['incidence_props_smear_positive_among_pulmonary']),
+        "extrapulmonary": 1.0 - fixed_params['incidence_props_pulmonary'],
+    }
+    for flow_name in ["early_activation", "late_activation"]:
+        flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
+        strat.set_flow_adjustments(flow_name, flow_adjs)
+    
+    des = "The age stratification adjusts following:" \
+            "(1) Infectiousness adjustment by organ status" \
+            "(2) Different natural history (infection death) by organ status" \
+            "(3) Different detection rates by organ status" \
+            "(4) The progression rates by organ using the requested incidence proportions"
+
+    return strat, des
+
 
 def request_output(
         model: CompartmentalModel,

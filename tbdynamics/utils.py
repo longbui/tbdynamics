@@ -1,6 +1,7 @@
 from math import log, exp
 import jax
 from jax import numpy as jnp
+import numpy as np
 
 def get_treatment_outcomes(duration, prop_death_among_non_success, natural_death_rate, tsr):
     
@@ -70,5 +71,22 @@ def get_latency_with_diabetes(
     ):
     diabetes_scale_up = tanh_based_scaleup(t, shape=0.05, inflection_time=1980, start_asymptote=0.0, end_asymptote=1.0)
     return (1.0 - diabetes_scale_up(t) * prop_diabetes * (1.0 - rr_progression_diabetes)) * previous_progression_rate
+
+def detection_func(tfunc, val):
+    return tfunc * val
+
+def build_contact_matrix():
+    values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
+          356.13449939],
+        [ 165.78966683,  881.63067677,  532.84120554,  550.75979227,
+          285.62836724],
+        [ 231.75164317,  311.38983781,  915.52884268,  673.30894113,
+          664.14577066],
+        [ 141.94492435,  310.88835505,  786.13676958, 1134.31076003,
+          938.03403291],
+        [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
+         1763.57657715]]
+    matrix = np.array(values).T
+    return matrix
 
 
