@@ -468,6 +468,49 @@ def add_organ_strat(
 
     return strat, des
 
+def add_gender_strat(
+        model: CompartmentalModel,
+        age_strata,
+        compartments,
+        fixed_params,
+) -> tuple:
+    requested_strata = fixed_params['gender']['strata']
+    strat = Stratification("gender", requested_strata, compartments)
+    props = fixed_params['gender']['proportions']
+    strat.set_population_split(props)
+    # Pre-process generic flow adjustments:
+    # IF infection is adjusted and other infection flows NOT adjusted
+    # THEN use the infection adjustment for the other infection flows
+
+    adjustments = fixed_params['gender']['adjustments']
+    adjs = {}
+    if 'infection' in adjustments.keys():
+        inf_adjs = fixed_params['gender']['adjustments']['infection']
+        item = {'infection': {k: v for k,v in inf_adjs.items()}}
+        adjs.update(item)
+        for stage in ["latent", "recovered"]:
+            flow_name = f"infection_from_{stage}"
+            if flow_name not in adjs:
+                adjs[flow_name] = adjs['infection']
+   
+   # Set birth flow adjustments
+    adjs['birth'] = props
+    # # # Set generic flow adjustments. Do not adjust for age under 15    
+    for flow_name, adjustment in adjs.items():
+        if flow_name == 'birth':
+            adj = {k : Multiply(v) for k,v in adjustment.items()} 
+            strat.set_flow_adjustments(flow_name, adj)
+        else:
+            for age in age_strata:
+                if age < 15:
+                    adj = {k: Multiply(1.0) for k in adjustment.keys()}
+                else:
+                    adj = {k: Multiply(v) for k, v in adjustment.items()}
+                strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
+
+    des = "This is stratification for gender"
+    return strat, des
+
 
 def request_output(
         model: CompartmentalModel,
