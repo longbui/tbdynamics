@@ -48,8 +48,8 @@ def build_base_model(
 
 def get_pop_data():
     pop_data = load_pop_data()
-    description = f"For demographics estimates of the Camau" 
-    return description, pop_data
+    des = f"For demographics estimates of the Camau" 
+    return des, pop_data
 
 def set_starting_conditions(
     model,
@@ -283,17 +283,18 @@ def add_acf(
                 v * fixed_params["acf_screening_sensitivity"]
                 for v in fixed_params["time_variant_screening_rate"].values()
             ]
+    print(times)
+    print(vals)
     acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
-    print(acf_detection_rate)
 
     process = "acf_detection"
     origin = "infectious"
     destination = "on_treatment"
     model.add_transition_flow(
-        "acf_detection",
+        process,
         acf_detection_rate,
-        "infectious",
-        "on_treatment",
+        origin,
+        destination,
     )
 
     return f"The {process} process moves people from the {origin} " \
@@ -446,10 +447,6 @@ def add_organ_strat(
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)        
-    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
-    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
-    # detection_adjs["smear_positive"] = Parameter("cdr_adjustment") * Function(detection_func,[Time, screening_rate_func, Parameter("passive_screening_sensitivity_smear_positive")])
-        
 
     # Adjust the progression rates by organ using the requested incidence proportions
     splitting_proportions = {
@@ -520,9 +517,10 @@ def request_output(
     if implement_acf:
         request_flow_output(model,"active_notifications_raw", "acf_detection", save_results=False)
         sources = ["passive_notifications_raw", "active_notifications_raw"]
+        # request_aggregation_output(model,"notifications_raw", sources, save_results=False)
     else:
         sources = ["passive_notifications_raw"] 
-    request_aggregation_output("notifications_raw", sources, save_results=False)
+    request_aggregation_output(model, "notifications_raw", sources, save_results=False)
     # request notifications
     request_normalise_flow_output(model, "notifications", "notifications_raw")
 
