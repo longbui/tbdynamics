@@ -10,7 +10,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function, get_lin
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 
-from .inputs import *
+from .inputs import load_pop_data, fixed_parameters, death_rates_by_age, death_rate_years
 from .utils import *
 from .outputs import *
 
@@ -71,7 +71,7 @@ def add_entry_flow(
     process = "birth"
     birth_rates = load_pop_data()[1]
     destination =  "susceptible"
-    crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.iloc[:,0], birth_rates.iloc[:,1])
+    crude_birth_rate = get_sigmoidal_interpolation_function(birth_rates.loc[:,'year'], birth_rates.loc[:,'value'])
     model.add_crude_birth_flow(
         process,
         crude_birth_rate,
@@ -85,7 +85,7 @@ def add_natural_death_flow(
     process = "universal_death"
     universal_death_rate = 1.0
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
-    return f"The {process} process add universal death to the model"
+    return f"The {process} process add universal death to the model."
 
 def add_infection(
     model: CompartmentalModel,
@@ -263,7 +263,7 @@ def add_self_recovery(
         
 def add_infect_death(
     model: CompartmentalModel 
-):
+) -> str:
     process = "infect_death"
     origin = "infectious"
     model.add_death_flow(
@@ -283,8 +283,7 @@ def add_acf(
                 v * fixed_params["acf_screening_sensitivity"]
                 for v in fixed_params["time_variant_screening_rate"].values()
             ]
-    print(times)
-    print(vals)
+
     acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
 
     process = "acf_detection"
@@ -307,7 +306,7 @@ def add_age_strat(
     age_strata,
     matrix,
     fixed_params
-):
+) -> str:
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
@@ -469,7 +468,6 @@ def add_organ_strat(
     return strat, des
 
 def add_gender_strat(
-        model: CompartmentalModel,
         age_strata,
         compartments,
         fixed_params,

@@ -2,6 +2,14 @@ from math import log, exp
 import jax
 from jax import numpy as jnp
 import numpy as np
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+from pathlib import Path
+
+BASE_PATH = Path(__file__).parent.parent.resolve()
+SUPPLEMENT_PATH = BASE_PATH / "supplement"
+DATA_PATH = BASE_PATH / "data"
 
 def get_treatment_outcomes(duration, prop_death_among_non_success, natural_death_rate, tsr):
     
@@ -75,7 +83,10 @@ def get_latency_with_diabetes(
 def detection_func(tfunc, val):
     return tfunc * val
 
-def build_contact_matrix():
+def build_contact_matrix(
+        age_strata, 
+        filename
+):
     values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
           356.13449939],
         [ 165.78966683,  881.63067677,  532.84120554,  550.75979227,
@@ -87,6 +98,24 @@ def build_contact_matrix():
         [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
          1763.57657715]]
     matrix = np.array(values).T
-    return matrix
+    matrix_figsize = 800
+    matrix_fig = go.Figure()
+    matrix_fig.add_trace(go.Heatmap(x=age_strata, y=age_strata, z = matrix, coloraxis="coloraxis"))
+    matrix_fig.update_layout(
+        xaxis = dict(
+                tick0 = 0,
+                tickmode = 'array',
+                tickvals = age_strata,
+        ),
+        yaxis = dict(
+                tick0 = 0,
+                tickmode = 'array',
+                tickvals = age_strata,
+        )
+    )
+    matrix_fig.update_layout(width=matrix_figsize, height=matrix_figsize * 1.15)
+    matrix_fig.write_image(SUPPLEMENT_PATH / filename)
+    matrix_fig_text = f"Year contact rates by age group (row), contact age group (column) "
+    return matrix, matrix_fig_text
 
 
