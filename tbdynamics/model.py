@@ -516,7 +516,7 @@ def request_output(
         latent_compartments,
         infectious_compartments,
         implement_acf = True
-):
+) -> tuple:
     """
     Get the applicable outputs
     """
