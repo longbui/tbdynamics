@@ -474,8 +474,7 @@ def add_gender_strat(
 ) -> tuple:
     requested_strata = fixed_params['gender']['strata']
     strat = Stratification("gender", requested_strata, compartments)
-    props = fixed_params['gender']['proportions']
-    strat.set_population_split(props)
+    #props = fixed_params['gender']['proportions']
     # Pre-process generic flow adjustments:
     # IF infection is adjusted and other infection flows NOT adjusted
     # THEN use the infection adjustment for the other infection flows
@@ -490,13 +489,16 @@ def add_gender_strat(
             flow_name = f"infection_from_{stage}"
             if flow_name not in adjs:
                 adjs[flow_name] = adjs['infection']
+
+    #print(adjs)
    
    # Set birth flow adjustments
-    adjs['birth'] = props
-    # # # Set generic flow adjustments. Do not adjust for age under 15    
+    adjs['birth'] = fixed_params['gender']['proportions']
+    # # # Set birth flow adjustments. Do not adjust for age under 15    
     for flow_name, adjustment in adjs.items():
         if flow_name == 'birth':
             adj = {k : Multiply(v) for k,v in adjustment.items()} 
+            print(adjs)
             strat.set_flow_adjustments(flow_name, adj)
         else:
             for age in age_strata:
@@ -504,6 +506,7 @@ def add_gender_strat(
                     adj = {k: Multiply(1.0) for k in adjustment.keys()}
                 else:
                     adj = {k: Multiply(v) for k, v in adjustment.items()}
+                print(adjs)
                 strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
 
     des = "This is stratification for gender"
