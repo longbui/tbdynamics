@@ -84,8 +84,8 @@ def detection_func(tfunc, val):
     return tfunc * val
 
 def build_contact_matrix(
-        age_strata, 
-        filename
+        # age_strata, 
+        # filename
 ):
     values = [[ 398.43289672,  261.82020387,  643.68286218,  401.62199159,
           356.13449939],
@@ -98,24 +98,24 @@ def build_contact_matrix(
         [  67.30073632,  170.46333134,  647.30153978, 1018.81243422,
          1763.57657715]]
     matrix = np.array(values).T
-    matrix_figsize = 800
-    matrix_fig = go.Figure()
-    matrix_fig.add_trace(go.Heatmap(x=age_strata, y=age_strata, z = matrix, coloraxis="coloraxis"))
-    matrix_fig.update_layout(
-        xaxis = dict(
-                tick0 = 0,
-                tickmode = 'array',
-                tickvals = age_strata,
-        ),
-        yaxis = dict(
-                tick0 = 0,
-                tickmode = 'array',
-                tickvals = age_strata,
-        )
-    )
-    matrix_fig.update_layout(width=matrix_figsize, height=matrix_figsize * 1.15)
-    matrix_fig.write_image(SUPPLEMENT_PATH / filename)
-    matrix_fig_text = f"Year contact rates by age group (row), contact age group (column) "
-    return matrix, matrix_fig_text
+    # matrix_figsize = 800
+    # matrix_fig = go.Figure()
+    # matrix_fig.add_trace(go.Heatmap(x=age_strata, y=age_strata, z = matrix, coloraxis="coloraxis"))
+    # matrix_fig.update_layout(
+    #     xaxis = dict(
+    #             tick0 = 0,
+    #             tickmode = 'array',
+    #             tickvals = age_strata,
+    #     ),
+    #     yaxis = dict(
+    #             tick0 = 0,
+    #             tickmode = 'array',
+    #             tickvals = age_strata,
+    #     )
+    # )
+    # matrix_fig.update_layout(width=matrix_figsize, height=matrix_figsize * 1.15)
+    # matrix_fig.write_image(SUPPLEMENT_PATH / filename)
+    # matrix_fig_text = f"Year contact rates by age group (row), contact age group (column) "
+    return matrix
 
 
