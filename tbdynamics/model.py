@@ -1,5 +1,5 @@
 
-from summer2 import AgeStratification, Overwrite, Multiply, Stratification
+
 from jax import numpy as jnp
 import numpy as np
 import pandas as pd
@@ -9,6 +9,7 @@ from pathlib import Path
 from summer2.functions.time import get_sigmoidal_interpolation_function, get_linear_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
+from summer2 import AgeStratification, Overwrite, Multiply, Stratification
 
 from .inputs import load_pop_data, fixed_parameters, death_rates_by_age, death_rate_years
 from .utils import *
@@ -25,35 +26,61 @@ Rather than docstrings for each, the text string to be included
 in the documentation is best description of the code's function.
 """
 
+def build_model(compartments,
+    infectious_compartments,
+    latent_compartments,
+    age_strata,
+    time_start,
+    time_end,
+    time_step,
+    matrix,
+    fixed_params):
+
+    model = build_base_model(compartments, infectious_compartments, time_start, time_end, time_step)
+    pop = get_pop_data()
+    set_starting_conditions(model)
+    add_entry_flow(model)
+    add_natural_death_flow(model)
+    add_infection(model)
+    add_latency(model)
+    add_detection(model)
+    add_treatment_related_outcomes(model)
+    add_self_recovery(model)
+    add_infect_death(model)
+    add_acf(model, fixed_params)
+    # age_strat = get_age_strat(compartments, infectious_compartments, age_strata, matrix, fixed_params)
+    # model.stratify_with(age_strat)
+    # organ_strat = get_organ_strat(fixed_params,infectious_compartments)
+    # model.stratify_with(organ_strat)
+    request_output(model, compartments, latent_compartments, infectious_compartments)
+    return model
+
+
+
 def build_base_model(
     compartments: list,
     infectious_compartments,
-    start_date,
-    end_date,
+    time_start,
+    time_end,
     step
 ) -> tuple:
     model = CompartmentalModel(
-        times=(start_date, end_date),
+        times=(time_start, time_end),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
         timestep=step
     )
-
-    description = f"The base model consists of {len(compartments)} states, " \
-        f"representing the following states: {', '.join(compartments)}. " \
-        f"Only the {infectious_compartments} compartment contributes to the force of infection. " \
-        f"The model is run from {str(start_date)} to {str(end_date)}. "
     
-    return model, description
+    return model
 
 def get_pop_data():
     pop_data = load_pop_data()
     des = f"For demographics estimates of the Camau" 
-    return des, pop_data
+    return pop_data
 
 def set_starting_conditions(
     model,
-) -> str:
+):
     start_pop = Parameter("start_population_size") 
     init_pop = {
         "infectious": 1,
@@ -62,12 +89,12 @@ def set_starting_conditions(
 
     # Assign to the model
     model.set_initial_population(init_pop)
-    return f"The simulation starts with {start_pop} million fully susceptible persons, " \
-        "with infectious persons introduced later through strain seeding as described below. "
+    # return f"The simulation starts with {start_pop} million fully susceptible persons, " \
+    #     "with infectious persons introduced later through strain seeding as described below. "
 
 def add_entry_flow(
     model: CompartmentalModel
-) -> str:
+):
     process = "birth"
     birth_rates = load_pop_data()[1]
     destination =  "susceptible"
@@ -77,15 +104,15 @@ def add_entry_flow(
         crude_birth_rate,
         destination,
     )
-    return f"The {process} process add newborns to the {destination} compartment of the model"
+    # return f"The {process} process add newborns to the {destination} compartment of the model"
 
 def add_natural_death_flow(
     model: CompartmentalModel 
-) -> str:
+):
     process = "universal_death"
     universal_death_rate = 1.0
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
-    return f"The {process} process add universal death to the model."
+    # return f"The {process} process add universal death to the model."
 
 def add_infection(
     model: CompartmentalModel,
@@ -136,7 +163,7 @@ def add_infection(
 
 def add_latency(
     model: CompartmentalModel,
-) -> tuple:
+):
     # add stabilization process 
     stabilisation_rate = 1.0 # later adjusted by age group
     process =  "stabilisation"
@@ -179,7 +206,7 @@ def add_latency(
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
 
-    return des1, des2, des3
+    # return des1, des2, des3
 
 def add_detection(
     model: CompartmentalModel,
@@ -300,7 +327,7 @@ def add_acf(
         f"compartment to the {destination}, " \
         "under the frequency-dependent transmission assumption. "
      
-def add_age_strat(
+def get_age_strat(
     compartments,
     infectious,
     age_strata,
@@ -399,10 +426,10 @@ def add_age_strat(
          "(4) Infectiousness multiplier for treatment" \
          "(5) Treatment outcomes: relapse, recovery and death"
 
-    return strat, des
+    return strat
 
 
-def add_organ_strat(
+def get_organ_strat(
         fixed_params: dict,
         infectious_compartments: list, 
     )-> Stratification:
@@ -467,7 +494,7 @@ def add_organ_strat(
 
     return strat, des
 
-def add_gender_strat(
+def get_gender_strat(
         age_strata,
         compartments,
         fixed_params,
