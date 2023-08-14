@@ -10,6 +10,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function, get_lin
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
+from general_utils.tex_utils import StandardTexDoc
 
 from .inputs import load_pop_data, fixed_parameters, death_rates_by_age, death_rate_years
 from .utils import *
@@ -34,10 +35,10 @@ def build_model(compartments,
     time_end,
     time_step,
     matrix,
-    fixed_params):
+    fixed_params,
+    tex_doc: StandardTexDoc):
 
-    model = build_base_model(compartments, infectious_compartments, time_start, time_end, time_step)
-    pop = get_pop_data()
+    model = build_base_model(compartments, infectious_compartments, time_start, time_end, time_step, )
     set_starting_conditions(model)
     add_entry_flow(model)
     add_natural_death_flow(model)
@@ -48,10 +49,10 @@ def build_model(compartments,
     add_self_recovery(model)
     add_infect_death(model)
     add_acf(model, fixed_params)
-    # age_strat = get_age_strat(compartments, infectious_compartments, age_strata, matrix, fixed_params)
-    # model.stratify_with(age_strat)
-    # organ_strat = get_organ_strat(fixed_params,infectious_compartments)
-    # model.stratify_with(organ_strat)
+    age_strat = get_age_strat(compartments, infectious_compartments, age_strata, matrix, fixed_params)
+    model.stratify_with(age_strat)
+    organ_strat = get_organ_strat(fixed_params,infectious_compartments)
+    model.stratify_with(organ_strat)
     request_output(model, compartments, latent_compartments, infectious_compartments)
     return model
 
@@ -62,14 +63,22 @@ def build_base_model(
     infectious_compartments,
     time_start,
     time_end,
-    step
-) -> tuple:
+    step,
+    tex_doc: StandardTexDoc
+):
     model = CompartmentalModel(
         times=(time_start, time_end),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
         timestep=step
     )
+    desc = f'The base model consists of {len(compartments)} states, ' \
+        f'representing the following states: {", ".join(compartments).replace("_", "")}. ' \
+        f"Each of the infectious compartments contribute equally to the force of infection. \n"
+    
+    time_desc = f'A simulation is run from {time_start} to {time_end}'
+    tex_doc.add_line(desc, 'Model Structure')
+    tex_doc.add_line(time_desc, "Population")
     
     return model
 
@@ -80,6 +89,7 @@ def get_pop_data():
 
 def set_starting_conditions(
     model,
+    tex_doc: StandardTexDoc
 ):
     start_pop = Parameter("start_population_size") 
     init_pop = {
@@ -89,11 +99,13 @@ def set_starting_conditions(
 
     # Assign to the model
     model.set_initial_population(init_pop)
-    # return f"The simulation starts with {start_pop} million fully susceptible persons, " \
-    #     "with infectious persons introduced later through strain seeding as described below. "
+    desc =  f"The simulation starts with {start_pop} million fully susceptible persons, " \
+    "with infectious persons introduced later through strain seeding as described below. "
+    tex_doc.add_line(desc, "Population")
 
 def add_entry_flow(
-    model: CompartmentalModel
+    model: CompartmentalModel,
+    tex_doc: StandardTexDoc
 ):
     process = "birth"
     birth_rates = load_pop_data()[1]
@@ -104,19 +116,23 @@ def add_entry_flow(
         crude_birth_rate,
         destination,
     )
-    # return f"The {process} process add newborns to the {destination} compartment of the model"
+    desc =  f"The {process} process add newborns to the {destination} compartment of the model"
+    tex_doc.add_line(desc, "Model Structure")
 
 def add_natural_death_flow(
-    model: CompartmentalModel 
+    model: CompartmentalModel,
+    tex_doc: StandardTexDoc
 ):
     process = "universal_death"
     universal_death_rate = 1.0
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
-    # return f"The {process} process add universal death to the model."
+    desc = f"The {process} process add universal death to the model."
+    tex_doc.add_line(desc, "Model Structure")
 
 def add_infection(
     model: CompartmentalModel,
-) -> tuple:
+    tex_doc: StandardTexDoc
+):
     """
     Args:
         model: Working compartmental model
@@ -128,10 +144,10 @@ def add_infection(
     origin = "susceptible"
     destination = "early_latent"
     model.add_infection_frequency_flow(process, Parameter("contact_rate"), origin, destination)
-    des1 = f"The {process} process moves people from the {origin} " \
+    desc1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
-
+    tex_doc.add_line(desc1, "Model Structure")
 
     process= "infection_from_latent"
     origin = "late_latent"
@@ -142,9 +158,11 @@ def add_infection(
         "late_latent",
         "early_latent",
     )
-    des2 = f"The {process} process moves people from the {origin} " \
+    desc2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    
+    tex_doc.add_line(desc2, "Model Structure")
 
     process = "infection_from_recovered"
     origin = "recovered"
@@ -155,14 +173,16 @@ def add_infection(
         origin,
         destination,
     )
-    des3 = f"The {process} process moves people from the {origin} " \
+    desc3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc3, "Model Structure")
 
-    return des1, des2, des3
+    
 
 def add_latency(
     model: CompartmentalModel,
+    tex_doc: StandardTexDoc
 ):
     # add stabilization process 
     stabilisation_rate = 1.0 # later adjusted by age group
@@ -175,9 +195,10 @@ def add_latency(
         origin,
         destination,
     )
-    des1 = f"The {process} process moves people from the {origin} " \
+    desc1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc1, "Model Structure")
     # Add the early activattion process 
     early_activation_rate = 1.0 # later adjusted by age group
     process = "early_activation"
@@ -189,9 +210,10 @@ def add_latency(
         origin,
         destination,
     )
-    des2 = f"The {process} process moves people from the {origin} " \
+    desc2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc2, "Model Structure")
 
     process = "late_activation"
     origin = "late_latent"
@@ -202,14 +224,16 @@ def add_latency(
         origin,
         destination,
     )
-    des3 = f"The {process} process moves people from the {origin} " \
+    desc3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc3, "Model Structure")
 
     # return des1, des2, des3
 
 def add_detection(
     model: CompartmentalModel,
+    tex_doc: StandardTexDoc
 ) -> str:
     detection_rate = 1.0 # later adjusted by organ
     process = "detection"
@@ -221,13 +245,15 @@ def add_detection(
         origin,
         destination,
     )
-    return f"The {process} process moves people from the {origin} " \
+    desc =  f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc, "Model Structure")
 
 def add_treatment_related_outcomes(
-    model : CompartmentalModel
-) -> tuple:
+    model : CompartmentalModel,
+    tex_doc: StandardTexDoc,
+):
     #Treatment recovery, releapse, death flows.
     treatment_recovery_rate = 1.0 #  later adjusted by organ
     process = "treatment_recovery"
@@ -239,10 +265,10 @@ def add_treatment_related_outcomes(
         origin,
         destination,
     )
-    des1 = f"The {process} process moves people from the {origin} " \
+    desc1 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
-
+    tex_doc.add_line(desc1, "Model Structure")
     treatment_death_rate = 1.0  #  later adjusted by age
     process = "treatment_death"
     origin = "on_treatment"
@@ -251,9 +277,10 @@ def add_treatment_related_outcomes(
         treatment_death_rate,
         "on_treatment",
     )
-    des2 = f"The {process} process moves people from the {origin} " \
+    desc2 = f"The {process} process moves people from the {origin} " \
         f"compartment to the death, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc2, "Model Structure")
     
     relapse_rate = 1.0 #  later adjusted by age
     process = "early_activation"
@@ -265,15 +292,17 @@ def add_treatment_related_outcomes(
         "on_treatment",
         "infectious",
     )
-    des3 = f"The {process} process moves people from the {origin} " \
+    desc3 = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc3, "Model Structure")
     
-    return des1, des2, des3
+
 
 def add_self_recovery(
-        model: CompartmentalModel
-) -> str: 
+    model: CompartmentalModel,
+    tex_doc: StandardTexDoc
+): 
     process = "self_recovery"
     origin = "on_treatment"
     destination = "recovered"
@@ -283,13 +312,14 @@ def add_self_recovery(
         origin,
         destination,
     )
-    return f"The {process} process moves people from the {origin} " \
+    desc =  f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination}, " \
         "under the frequency-dependent transmission assumption. "
-     
+    tex_doc.add_line(desc, "Model Structure")
         
 def add_infect_death(
-    model: CompartmentalModel 
+    model: CompartmentalModel, 
+    tex_doc: StandardTexDoc
 ) -> str:
     process = "infect_death"
     origin = "infectious"
@@ -298,12 +328,14 @@ def add_infect_death(
         Parameter("infect_death_rate_unstratified"),
         "infectious",
     )
-    return f"The {process} process moves people from the {origin}"
+    desc = f"The {process} process moves people from the {origin}"
+    tex_doc.add_line(desc, "Model Structure")
 
 def add_acf(
     model: CompartmentalModel,
-    fixed_params
-) -> str:
+    fixed_params,
+    tex_doc: StandardTexDoc
+):
             # Universal active case funding is applied
     times = list(fixed_params["time_variant_screening_rate"])
     vals = [
@@ -323,16 +355,18 @@ def add_acf(
         destination,
     )
 
-    return f"The {process} process moves people from the {origin} " \
+    desc = f"The {process} process moves people from the {origin} " \
         f"compartment to the {destination}, " \
         "under the frequency-dependent transmission assumption. "
+    tex_doc.add_line(desc, "Model Structure")
      
 def get_age_strat(
     compartments,
     infectious,
     age_strata,
     matrix,
-    fixed_params
+    fixed_params,
+    tex_doc: StandardTexDoc
 ) -> str:
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
@@ -420,19 +454,20 @@ def get_age_strat(
 
 
     strat.set_flow_adjustments("infection", bcg_adjs)
-    des = "The age stratification adjusts following process: (1) The universal death by age group. The data was taken from autumn's database." \
+    desc = "The age stratification adjusts following process: (1) The universal death by age group. The data was taken from autumn's database." \
          " (2) The early and late activation" \
          "(3) Age infectioness switched at age of 15" \
          "(4) Infectiousness multiplier for treatment" \
          "(5) Treatment outcomes: relapse, recovery and death"
-
+    tex_doc.add_line(desc, 'Stratification', subsection='Age')
     return strat
 
 
 def get_organ_strat(
         fixed_params: dict,
         infectious_compartments: list, 
-    )-> Stratification:
+        tex_doc: StandardTexDoc,
+    ):
     
     ORGAN_STRATA = [
         "smear_positive",
@@ -449,14 +484,14 @@ def get_organ_strat(
     for comp in infectious_compartments:
         strat.add_infectiousness_adjustments(comp, inf_adj)
 
-    #Define different natural history (infection death) by organ status
+    # Define different natural history (infection death) by organ status
     infect_death_adjs = {}
     infect_death_adjs["smear_positive"] = Overwrite(Parameter("smear_positive_death_rate"))
     infect_death_adjs["smear_negative"] = Overwrite(Parameter("smear_negative_death_rate"))
     infect_death_adjs["extrapulmonary"] = Overwrite(Parameter("smear_negative_death_rate"))
     strat.set_flow_adjustments("infect_death", infect_death_adjs)
 
-    #Define different natural history (self recovery) by organ status
+    # Define different natural history (self recovery) by organ status
     self_recovery_adjs = {}
     self_recovery_adjs["smear_positive"] = Overwrite(Parameter("smear_positive_self_recovery"))
     self_recovery_adjs["smear_negative"] = Overwrite(Parameter("smear_negative_self_recovery"))
@@ -486,19 +521,21 @@ def get_organ_strat(
         flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
         strat.set_flow_adjustments(flow_name, flow_adjs)
     
-    des = "The age stratification adjusts following:" \
+    desc = "The age stratification adjusts following:" \
             "(1) Infectiousness adjustment by organ status" \
             "(2) Different natural history (infection death) by organ status" \
             "(3) Different detection rates by organ status" \
             "(4) The progression rates by organ using the requested incidence proportions"
+    tex_doc.add_line(desc, 'Stratification', subsection='Age')
 
-    return strat, des
+    return strat
 
 def get_gender_strat(
         age_strata,
         compartments,
         fixed_params,
-) -> tuple:
+        tex_doc: StandardTexDoc
+):
     requested_strata = fixed_params['gender']['strata']
     strat = Stratification("gender", requested_strata, compartments)
     #props = fixed_params['gender']['proportions']
@@ -536,8 +573,9 @@ def get_gender_strat(
                 print(adjs)
                 strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
 
-    des = "This is stratification for gender"
-    return strat, des
+    desc = "This is stratification for gender"
+    tex_doc.add_line(desc, 'Stratification', subsection='Gender')
+    return strat
 
 
 def request_output(
@@ -546,7 +584,7 @@ def request_output(
         latent_compartments,
         infectious_compartments,
         implement_acf = True
-) -> tuple:
+):
     """
     Get the applicable outputs
     """
