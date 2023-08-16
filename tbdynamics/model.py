@@ -560,18 +560,17 @@ def get_gender_strat(
     adjs['birth'] = fixed_params['gender']['proportions']
     # # # Set birth flow adjustments. Do not adjust for age under 15    
     for flow_name, adjustment in adjs.items():
-        if flow_name == 'birth':
-            adj = {k : Multiply(v) for k,v in adjustment.items()} 
-            print(adjs)
-            strat.set_flow_adjustments(flow_name, adj)
-        else:
-            for age in age_strata:
+        for age in age_strata: # only set adjustment for age > 15
+            if flow_name == 'birth':
                 if age < 15:
                     adj = {k: Multiply(1.0) for k in adjustment.keys()}
-                else:
-                    adj = {k: Multiply(v) for k, v in adjustment.items()}
-                print(adjs)
-                strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
+                else: 
+                    adj = {k : Multiply(v) for k,v in adjustment.items()}
+                strat.set_flow_adjustments(flow_name, adj)
+            else:
+                adj = {k: Multiply(v) for k, v in adjustment.items()}
+    
+    strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
 
     desc = "This is stratification for gender"
     tex_doc.add_line(desc, 'Stratification', subsection='Gender')
