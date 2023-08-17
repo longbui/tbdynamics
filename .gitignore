@@ -3,4 +3,6 @@ outputs/
 *.pyc
 *ipynb_checkpoints*
 *.egg-info
+*.egg
 .vscode/
+__pycache__/
