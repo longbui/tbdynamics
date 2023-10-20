@@ -504,7 +504,7 @@ def get_organ_strat(
 
         # detection_adjs[organ_stratum] = Function(tanh_scaleup, [Time, Parameter("acf_scaleup_shape"), Parameter("acf_inflection_time"), 
         #                                                         Parameter("acf_start_asymp"), Parameter("end_asymp")]) * fixed_params[param_name]
-        detection_adjs[organ_stratum] = Function(tanh_based_scaleup, [Time, .1, 1980, 0, 0.4]) * fixed_params[param_name]
+        detection_adjs[organ_stratum] = Function(tanh_based_scaleup, [Time, .05, 1980, 0., 10.]) * fixed_params[param_name]
    
         
 
