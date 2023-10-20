@@ -58,17 +58,15 @@ def tanh_based_scaleup(t, shape, inflection_time, start_asymptote, end_asymptote
     :param end_asymptote: highest asymptotic value
     :return: a function
     """
-    assymp_range = end_asymptote - start_asymptote
-    return (jnp.tanh(shape * (t - inflection_time)) / 2.0 + 0.5) * assymp_range + start_asymptote
+    rng = end_asymptote - start_asymptote
+    return (jnp.tanh(shape * (t - inflection_time)) / 2.0 + 0.5) * rng + start_asymptote
 
 def make_linear_curve(x_0, x_1, y_0, y_1):
     assert x_1 > x_0
     slope = (y_1 - y_0) / (x_1 - x_0)
-
     @jax.jit
     def curve(x):
         return y_0 + slope * (x - x_0)
-
     return curve
 
 def get_latency_with_diabetes(
@@ -118,4 +116,6 @@ def build_contact_matrix(
     # matrix_fig_text = f"Year contact rates by age group (row), contact age group (column) "
     return matrix
 
+    
 
+                                                          

@@ -1,20 +1,16 @@
 
 
 from jax import numpy as jnp
-import numpy as np
-import pandas as pd
-import plotly.express as px
 from pathlib import Path
-
-from summer2.functions.time import get_sigmoidal_interpolation_function, get_linear_interpolation_function
+from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
-from general_utils.tex_utils import StandardTexDoc
+from emutools.tex import StandardTexDoc
 
-from .inputs import load_pop_data, fixed_parameters, death_rates_by_age, death_rate_years
-from .utils import *
-from .outputs import *
+from .inputs import load_pop_data, death_rates_by_age, death_rate_years
+from .utils import get_average_age_for_bcg, get_average_sigmoid, get_latency_with_diabetes, get_treatment_outcomes, tanh_based_scaleup,  bcg_multiplier_func
+from .outputs import request_aggregation_output, request_flow_output, request_normalise_flow_output
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 SUPPLEMENT_PATH = BASE_PATH / "supplement"
@@ -47,8 +43,8 @@ def build_model(compartments,
     add_detection(model, tex_doc)
     add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
+    # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
-    add_acf(model, fixed_params, tex_doc)
     age_strat = get_age_strat(compartments, infectious_compartments, age_strata, matrix, fixed_params, tex_doc)
     model.stratify_with(age_strat)
     organ_strat = get_organ_strat(fixed_params,infectious_compartments, tex_doc)
@@ -93,8 +89,8 @@ def set_starting_conditions(
 ):
     start_pop = Parameter("start_population_size") 
     init_pop = {
-        "infectious": 1,
-        "susceptible": start_pop - 1,
+        "infectious": 1.0,
+        "susceptible": start_pop - 1.0,
     }
 
     # Assign to the model
@@ -304,7 +300,7 @@ def add_self_recovery(
     tex_doc: StandardTexDoc
 ): 
     process = "self_recovery"
-    origin = "on_treatment"
+    origin = "infectious"
     destination = "recovered"
     model.add_transition_flow(
         "self_recovery",
@@ -503,8 +499,14 @@ def get_organ_strat(
     for organ_stratum in ORGAN_STRATA:
         #adj_vals = sensitivity[organ_stratum]
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
-        detection_adjs[organ_stratum] = Parameter("cdr_adjustment") * get_sigmoidal_interpolation_function(list(fixed_params["time_variant_tb_screening_rate"].keys()), 
-                                                                                list(fixed_params["time_variant_tb_screening_rate"].values())) * fixed_params[param_name]
+        # detection_adjs[organ_stratum] = Parameter("cdr_adjustment") * get_sigmoidal_interpolation_function(list(fixed_params["time_variant_tb_screening_rate"].keys()), 
+        #                                                                         list(fixed_params["time_variant_tb_screening_rate"].values())) * fixed_params[param_name]
+
+        # detection_adjs[organ_stratum] = Function(tanh_scaleup, [Time, Parameter("acf_scaleup_shape"), Parameter("acf_inflection_time"), 
+        #                                                         Parameter("acf_start_asymp"), Parameter("end_asymp")]) * fixed_params[param_name]
+        detection_adjs[organ_stratum] = Function(tanh_based_scaleup, [Time, .1, 1980, 0, 0.4]) * fixed_params[param_name]
+   
+        
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)        
@@ -582,7 +584,7 @@ def request_output(
         compartments,
         latent_compartments,
         infectious_compartments,
-        implement_acf = True
+        implement_acf = False
 ):
     """
     Get the applicable outputs
