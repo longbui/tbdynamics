@@ -132,6 +132,12 @@ def round_sigfig(
         return 'infinity'
     else:
         return round(value, -int(np.floor(np.log10(value))) + (sig_figs - 1)) if value != 0.0 else 0.0
+    
+def replace_underscore_with_space(input_string):
+    if "_" in input_string:
+        return input_string.replace("_", " ")
+    else:
+        return input_string
 
     
 

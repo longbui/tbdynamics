@@ -9,7 +9,7 @@ from summer2 import AgeStratification, Overwrite, Multiply, Stratification
 from emutools.tex import StandardTexDoc
 
 from .inputs import load_pop_data, death_rates_by_age, death_rate_years
-from .utils import get_average_age_for_bcg, get_average_sigmoid, get_latency_with_diabetes, get_treatment_outcomes, tanh_based_scaleup,  bcg_multiplier_func
+from .utils import get_average_age_for_bcg, get_average_sigmoid, get_latency_with_diabetes, get_treatment_outcomes, tanh_based_scaleup,  bcg_multiplier_func, replace_underscore_with_space
 from .outputs import request_aggregation_output, request_flow_output, request_normalise_flow_output
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
@@ -32,9 +32,10 @@ def build_model(compartments,
     time_step,
     matrix,
     fixed_params,
-    tex_doc: StandardTexDoc):
+    tex_doc: StandardTexDoc,
+    organ_strat = True):
 
-    model = build_base_model(compartments, infectious_compartments, time_start, time_end, time_step,tex_doc )
+    model = build_base_model(compartments, infectious_compartments, time_start, time_end, time_step,tex_doc)
     set_starting_conditions(model, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
@@ -47,10 +48,13 @@ def build_model(compartments,
     add_infect_death(model, tex_doc)
     age_strat = get_age_strat(compartments, infectious_compartments, age_strata, matrix, fixed_params, tex_doc)
     model.stratify_with(age_strat)
-    organ_strat = get_organ_strat(fixed_params,infectious_compartments, tex_doc)
-    model.stratify_with(organ_strat)
+    if organ_strat:
+        organ_strat = get_organ_strat(fixed_params,infectious_compartments, tex_doc)
+        model.stratify_with(organ_strat)
     request_output(model, compartments, latent_compartments, infectious_compartments)
     return model
+
+
 
 
 
@@ -80,7 +84,6 @@ def build_base_model(
 
 def get_pop_data():
     pop_data = load_pop_data()
-    des = f"For demographics estimates of the Camau" 
     return pop_data
 
 def set_starting_conditions(
@@ -95,7 +98,7 @@ def set_starting_conditions(
 
     # Assign to the model
     model.set_initial_population(init_pop)
-    desc =  f"The simulation starts with {start_pop} million fully susceptible persons, " \
+    desc =  f"The simulation starts with {replace_underscore_with_space(start_pop)} million fully susceptible persons, " \
     "with infectious persons introduced later through strain seeding as described below. "
     tex_doc.add_line(desc, "Population")
 
@@ -122,7 +125,7 @@ def add_natural_death_flow(
     process = "universal_death"
     universal_death_rate = 1.0
     model.add_universal_death_flows("universal_death", death_rate=universal_death_rate)
-    desc = f"The {process} process add universal death to the model."
+    desc = f"The {replace_underscore_with_space(process)} process add universal death to the model."
     tex_doc.add_line(desc, "Model Structure")
 
 def add_infection(
@@ -140,8 +143,8 @@ def add_infection(
     origin = "susceptible"
     destination = "early_latent"
     model.add_infection_frequency_flow(process, Parameter("contact_rate"), origin, destination)
-    desc1 = f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination} compartment, " \
+    desc1 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc1, "Model Structure")
 
@@ -154,8 +157,8 @@ def add_infection(
         "late_latent",
         "early_latent",
     )
-    desc2 = f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination} compartment, " \
+    desc2 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, " \
         "under the frequency-dependent transmission assumption. "
     
     tex_doc.add_line(desc2, "Model Structure")
@@ -169,8 +172,8 @@ def add_infection(
         origin,
         destination,
     )
-    desc3 = f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination} compartment, " \
+    desc3 = f"The {replace_underscore_with_space(process)} process moves people from the {origin} " \
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc3, "Model Structure")
 
@@ -191,8 +194,8 @@ def add_latency(
         origin,
         destination,
     )
-    desc1 = f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination} compartment, " \
+    desc1 = f"The {process} process moves people from the {replace_underscore_with_space(origin)} " \
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc1, "Model Structure")
     # Add the early activattion process 
@@ -206,7 +209,7 @@ def add_latency(
         origin,
         destination,
     )
-    desc2 = f"The {process} process moves people from the {origin} " \
+    desc2 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc2, "Model Structure")
@@ -220,7 +223,7 @@ def add_latency(
         origin,
         destination,
     )
-    desc3 = f"The {process} process moves people from the {origin} " \
+    desc3 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc3, "Model Structure")
@@ -242,7 +245,7 @@ def add_detection(
         destination,
     )
     desc =  f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination} compartment, " \
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc, "Model Structure")
 
@@ -261,7 +264,7 @@ def add_treatment_related_outcomes(
         origin,
         destination,
     )
-    desc1 = f"The {process} process moves people from the {origin} " \
+    desc1 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc1, "Model Structure")
@@ -273,7 +276,7 @@ def add_treatment_related_outcomes(
         treatment_death_rate,
         "on_treatment",
     )
-    desc2 = f"The {process} process moves people from the {origin} " \
+    desc2 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
         f"compartment to the death, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc2, "Model Structure")
@@ -288,7 +291,7 @@ def add_treatment_related_outcomes(
         "on_treatment",
         "infectious",
     )
-    desc3 = f"The {process} process moves people from the {origin} " \
+    desc3 = f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} " \
         f"compartment to the {destination} compartment, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc3, "Model Structure")
@@ -308,7 +311,7 @@ def add_self_recovery(
         origin,
         destination,
     )
-    desc =  f"The {process} process moves people from the {origin} " \
+    desc =  f"The {replace_underscore_with_space(process)} process moves people from the {origin} " \
         f"compartment to the {destination}, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc, "Model Structure")
@@ -324,7 +327,7 @@ def add_infect_death(
         Parameter("infect_death_rate_unstratified"),
         "infectious",
     )
-    desc = f"The {process} process moves people from the {origin}"
+    desc = f"The {replace_underscore_with_space(process)} process moves people from the {origin}"
     tex_doc.add_line(desc, "Model Structure")
 
 def add_acf(
@@ -351,8 +354,8 @@ def add_acf(
         destination,
     )
 
-    desc = f"The {process} process moves people from the {origin} " \
-        f"compartment to the {destination}, " \
+    desc = f"The {replace_underscore_with_space(process)} process moves people from the {origin} " \
+        f"compartment to the {replace_underscore_with_space(destination)}, " \
         "under the frequency-dependent transmission assumption. "
     tex_doc.add_line(desc, "Model Structure")
      
