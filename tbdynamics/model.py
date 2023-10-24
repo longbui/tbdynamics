@@ -98,7 +98,7 @@ def set_starting_conditions(
 
     # Assign to the model
     model.set_initial_population(init_pop)
-    desc =  f"The simulation starts with {replace_underscore_with_space(start_pop)} million fully susceptible persons, " \
+    desc =  f"The simulation starts with {start_pop} million fully susceptible persons, " \
     "with infectious persons introduced later through strain seeding as described below. "
     tex_doc.add_line(desc, "Population")
 
