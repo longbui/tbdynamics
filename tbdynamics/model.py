@@ -72,19 +72,34 @@ def build_model(
     return model
 
 
+def build_model_no_tb(
+    compartments: list,
+    infectious_compartments,
+    time_start,
+    time_end,
+    time_step,
+    tex_doc: StandardTexDoc,
+):
+    model = build_base_model(
+        compartments, infectious_compartments, time_start, time_end, time_step, tex_doc
+    )
+
+    return model
+
+
 def build_base_model(
     compartments: list,
     infectious_compartments,
     time_start,
     time_end,
-    step,
+    time_step,
     tex_doc: StandardTexDoc,
 ):
     model = CompartmentalModel(
         times=(time_start, time_end),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
-        timestep=step,
+        timestep=time_step,
     )
     desc = (
         f"The base model consists of {len(compartments)} states, "
@@ -569,9 +584,9 @@ def get_organ_strat(
                 [
                     Time,
                     Parameter("acf_scaleup_shape"),
-                    Parameter("acf_inflection_time"),
+                    1990,
                     Parameter("acf_start_asymp"),
-                    Parameter("acf_end_asymp"),
+                    1.0,
                 ],
             )
             * fixed_params[param_name]
