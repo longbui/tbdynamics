@@ -72,21 +72,6 @@ def build_model(
     return model
 
 
-def build_model_no_tb(
-    compartments: list,
-    infectious_compartments,
-    time_start,
-    time_end,
-    time_step,
-    tex_doc: StandardTexDoc,
-):
-    model = build_base_model(
-        compartments, infectious_compartments, time_start, time_end, time_step, tex_doc
-    )
-
-    return model
-
-
 def build_base_model(
     compartments: list,
     infectious_compartments,
@@ -750,3 +735,5 @@ def request_output(
     request_aggregation_output(model, "notifications_raw", sources, save_results=False)
     # request notifications
     request_normalise_flow_output(model, "notifications", "notifications_raw")
+
+
