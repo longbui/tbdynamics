@@ -6,7 +6,7 @@ from summer2.parameters import Parameter, DerivedOutput, Function, Time
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
 from emutools.tex import StandardTexDoc
 
-from .inputs import load_pop_data, death_rates_by_age, death_rate_years
+from .inputs import get_birth_rate, process_death_rate
 from .utils import (
     get_average_age_for_bcg,
     get_average_sigmoid,
@@ -55,12 +55,12 @@ def build_model(
     add_natural_death_flow(model, tex_doc)
     add_infection(model, tex_doc)
     add_latency(model, tex_doc)
-    add_detection(model, tex_doc)
-    add_treatment_related_outcomes(model, tex_doc)
+    # add_detection(model, tex_doc)
+    # add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
-    add_acf(model, fixed_params, tex_doc)
+    # add_acf(model, fixed_params, tex_doc)
     age_strat = get_age_strat(
         compartments, infectious_compartments, age_strata, matrix, fixed_params, tex_doc
     )
@@ -68,13 +68,13 @@ def build_model(
     if organ_strat:
         organ_strat = get_organ_strat(fixed_params, infectious_compartments, tex_doc)
         model.stratify_with(organ_strat)
-    request_output(model, compartments, latent_compartments, infectious_compartments)
+    request_output(model, age_strata, compartments, latent_compartments, infectious_compartments)
     return model
 
 
 def build_base_model(
     compartments: list,
-    infectious_compartments,
+    infectious_compartments: list,
     time_start,
     time_end,
     time_step,
@@ -99,11 +99,6 @@ def build_base_model(
     return model
 
 
-def get_pop_data():
-    pop_data = load_pop_data()
-    return pop_data
-
-
 def set_starting_conditions(model, tex_doc: StandardTexDoc):
     start_pop = Parameter("start_population_size")
     init_pop = {
@@ -122,10 +117,10 @@ def set_starting_conditions(model, tex_doc: StandardTexDoc):
 
 def add_entry_flow(model: CompartmentalModel, tex_doc: StandardTexDoc):
     process = "birth"
-    birth_rates = load_pop_data()[1]
+    birth_rates = get_birth_rate()
     destination = "susceptible"
     crude_birth_rate = get_sigmoidal_interpolation_function(
-        birth_rates.loc[:, "year"], birth_rates.loc[:, "value"]
+        birth_rates.index, birth_rates
     )
     model.add_crude_birth_flow(
         process,
@@ -165,38 +160,38 @@ def add_infection(model: CompartmentalModel, tex_doc: StandardTexDoc):
     )
     tex_doc.add_line(desc1, "Model Structure")
 
-    process = "infection_from_latent"
-    origin = "late_latent"
-    destination = "early_latent"
-    model.add_infection_frequency_flow(
-        process,
-        Parameter("contact_rate") * Parameter("rr_infection_latent"),
-        "late_latent",
-        "early_latent",
-    )
-    desc2 = (
-        f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} "
-        f"compartment to the {replace_underscore_with_space(destination)} compartment, "
-        "under the frequency-dependent transmission assumption. "
-    )
+    # process = "infection_from_latent"
+    # origin = "late_latent"
+    # destination = "early_latent"
+    # model.add_infection_frequency_flow(
+    #     process,
+    #     Parameter("contact_rate") * Parameter("rr_infection_latent"),
+    #     "late_latent",
+    #     "early_latent",
+    # )
+    # desc2 = (
+    #     f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} "
+    #     f"compartment to the {replace_underscore_with_space(destination)} compartment, "
+    #     "under the frequency-dependent transmission assumption. "
+    # )
 
-    tex_doc.add_line(desc2, "Model Structure")
+    # tex_doc.add_line(desc2, "Model Structure")
 
-    process = "infection_from_recovered"
-    origin = "recovered"
-    destination = "early_latent"
-    model.add_infection_frequency_flow(
-        process,
-        Parameter("contact_rate") * Parameter("rr_infection_recovered"),
-        origin,
-        destination,
-    )
-    desc3 = (
-        f"The {replace_underscore_with_space(process)} process moves people from the {origin} "
-        f"compartment to the {replace_underscore_with_space(destination)} compartment, "
-        "under the frequency-dependent transmission assumption. "
-    )
-    tex_doc.add_line(desc3, "Model Structure")
+    # process = "infection_from_recovered"
+    # origin = "recovered"
+    # destination = "early_latent"
+    # model.add_infection_frequency_flow(
+    #     process,
+    #     Parameter("contact_rate") * Parameter("rr_infection_recovered"),
+    #     origin,
+    #     destination,
+    # )
+    # desc3 = (
+    #     f"The {replace_underscore_with_space(process)} process moves people from the {origin} "
+    #     f"compartment to the {replace_underscore_with_space(destination)} compartment, "
+    #     "under the frequency-dependent transmission assumption. "
+    # )
+    # tex_doc.add_line(desc3, "Model Structure")
 
 
 def add_latency(model: CompartmentalModel, tex_doc: StandardTexDoc):
@@ -386,18 +381,19 @@ def add_acf(model: CompartmentalModel, fixed_params, tex_doc: StandardTexDoc):
 
 
 def get_age_strat(
-    compartments, infectious, age_strata, matrix, fixed_params, tex_doc: StandardTexDoc
+    compartments, infectious, age_strata, matrix, fixed_params, tex_doc: StandardTexDoc, without_treatment=True
 ) -> str:
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
+    death_df = process_death_rate(age_strata)
     for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(
-            death_rate_years, death_rates_by_age[age]
+            death_df.index, death_df[age]
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
-    # Set age-specific late activation rate
+    #Set age-specific late activation rate
     for flow_name, latency_params in fixed_params["age_stratification"].items():
         # is_activation_flow = flow_name in ["late_activation"]
         # if is_activation_flow:
@@ -407,12 +403,12 @@ def get_age_strat(
         }
         strat.set_flow_adjustments(flow_name, adjs)
 
-        # inflate for diabetes
+        #inflate for diabetes
         is_activation_flow = flow_name in ["early_activation", "late_activation"]
         if fixed_params["inflate_reactivation_for_diabetes"] and is_activation_flow:
             # Inflate reactivation rate to account for diabetes.
             for age in age_strata:
-                adjs[age] = Function(
+                adjs[str(age)] = Function(
                     get_latency_with_diabetes,
                     [
                         Time,
@@ -430,73 +426,73 @@ def get_age_strat(
                 if age_low == age_strata[-1]
                 else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
             )
-
+            if not without_treatment and comp == "on_treatment":
             # Infectiousness multiplier for treatment
-            if comp == "on_treatment":
                 infectiousness *= Parameter("on_treatment_infect_multiplier")
 
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
 
-    # Get the time-varying treatment success proportions
+    #Get the time-varying treatment success proportions
     time_variant_tsr = get_sigmoidal_interpolation_function(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-
+    if not without_treatment:
     # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
-    treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
-        {},
-        {},
-        {},
-    )
-    for age in age_strata:
-        death_rate = universal_death_funcs[age]
-        treatment_outcomes = Function(
-            get_treatment_outcomes,
-            [
-                fixed_params["treatment_duration"],
-                fixed_params["prop_death_among_negative_tx_outcome"],
-                death_rate,
-                time_variant_tsr,
-            ],
+        treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
+            {},
+            {},
+            {},
         )
-        treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
-        treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
-        treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
-    strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
-    strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
-    strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
-
-    # Add BCG effect without stratifying for BCG
-    bcg_multiplier_dict = {
-        "0": 0.3,
-        "5": 0.3,
-        "15": 0.7375,
-        "35": 1.0,
-        "50": 1.0,
-    }  # Ragonnet et al. (IJE, 2020)
-    bcg_adjs = {}
-    for age, multiplier in bcg_multiplier_dict.items():
-        if multiplier < 1.0:
-            bcg_adjs[str(age)] = Multiply(
-                Function(
-                    bcg_multiplier_func,
-                    [
-                        get_sigmoidal_interpolation_function(
-                            list(fixed_params["time_variant_bcg_perc"].keys()),
-                            list(fixed_params["time_variant_bcg_perc"].values()),
-                            Time - get_average_age_for_bcg(age, age_strata),
-                        ),
-                        multiplier,
-                    ],
-                )
+        for age in age_strata:
+            death_rate = universal_death_funcs[age]
+            treatment_outcomes = Function(
+                get_treatment_outcomes,
+                [
+                    fixed_params["treatment_duration"],
+                    fixed_params["prop_death_among_negative_tx_outcome"],
+                    death_rate,
+                    time_variant_tsr,
+                ],
             )
-        else:
-            bcg_adjs[str(age)] = None
+            treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
+            treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
+            treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
+        strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
+        strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
+        strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
 
-    strat.set_flow_adjustments("infection", bcg_adjs)
+        # Add BCG effect without stratifying for BCG
+        bcg_multiplier_dict = {
+            "0": 0.3,
+            "5": 0.3,
+            "15": 0.7375,
+            "35": 1.0,
+            "50": 1.0,
+            "70": 1.0
+        }  # Ragonnet et al. (IJE, 2020)
+        bcg_adjs = {}
+        for age, multiplier in bcg_multiplier_dict.items():
+            if multiplier < 1.0:
+                bcg_adjs[str(age)] = Multiply(
+                    Function(
+                        bcg_multiplier_func,
+                        [
+                            get_sigmoidal_interpolation_function(
+                                list(fixed_params["time_variant_bcg_perc"].keys()),
+                                list(fixed_params["time_variant_bcg_perc"].values()),
+                                Time - get_average_age_for_bcg(age, age_strata),
+                            ),
+                            multiplier,
+                        ],
+                    )
+                )
+            else:
+                bcg_adjs[str(age)] = None
+
+        strat.set_flow_adjustments("infection", bcg_adjs)
     desc = (
         "The age stratification adjusts following process: (1) The universal death by age group. The data was taken from autumn's database."
         " (2) The early and late activation"
@@ -654,6 +650,7 @@ def get_gender_strat(age_strata, compartments, fixed_params, tex_doc: StandardTe
 
 def request_output(
     model: CompartmentalModel,
+    age_strata,
     compartments,
     latent_compartments,
     infectious_compartments,
@@ -662,8 +659,8 @@ def request_output(
     """
     Get the applicable outputs
     """
-    model.request_output_for_compartments(
-        "total_population", compartments, save_results=True
+    request_compartment_output(
+        model, "total_population", age_strata ,compartments, save_results=True
     )
     model.request_output_for_compartments(
         "latent_population_size", latent_compartments, save_results=True
@@ -687,53 +684,66 @@ def request_output(
         / DerivedOutput("total_population"),
     )
 
-    # Death
-    model.request_output_for_flow(
-        "mortality_infectious_raw", "infect_death", save_results=True
-    )
+    # # Death
+    # model.request_output_for_flow(
+    #     "mortality_infectious_raw", "infect_death", save_results=True
+    # )
 
-    sources = ["mortality_infectious_raw"]
-    request_aggregation_output(model, "mortality_raw", sources, save_results=False)
-    model.request_cumulative_output(
-        "cumulative_deaths", "mortality_raw", start_time=2000
-    )
+    # sources = ["mortality_infectious_raw"]
+    # request_aggregation_output(model, "mortality_raw", sources, save_results=False)
+    # model.request_cumulative_output(
+    #     "cumulative_deaths", "mortality_raw", start_time=2000
+    # )
 
-    # Disease incidence
-    request_flow_output(
-        model, "incidence_early_raw", "early_activation", save_results=False
-    )
-    request_flow_output(
-        model, "incidence_late_raw", "late_activation", save_results=False
-    )
-    sources = ["incidence_early_raw", "incidence_late_raw"]
-    request_aggregation_output(model, "incidence_raw", sources, save_results=False)
-    model.request_cumulative_output(
-        "cumulative_diseased", "incidence_raw", start_time=2000
-    )
+    # # Disease incidence
+    # request_flow_output(
+    #     model, "incidence_early_raw", "early_activation", save_results=False
+    # )
+    # request_flow_output(
+    #     model, "incidence_late_raw", "late_activation", save_results=False
+    # )
+    # sources = ["incidence_early_raw", "incidence_late_raw"]
+    # request_aggregation_output(model, "incidence_raw", sources, save_results=False)
+    # model.request_cumulative_output(
+    #     "cumulative_diseased", "incidence_raw", start_time=2000
+    # )
 
-    # Normalise incidence so that it is per unit time (year), not per timestep
-    request_normalise_flow_output(model, "incidence_early", "incidence_early_raw")
-    request_normalise_flow_output(model, "incidence_late", "incidence_late_raw")
-    request_normalise_flow_output(
-        model, "incidence_norm", "incidence_raw", save_results=False
+    # # Normalise incidence so that it is per unit time (year), not per timestep
+    # request_normalise_flow_output(model, "incidence_early", "incidence_early_raw")
+    # request_normalise_flow_output(model, "incidence_late", "incidence_late_raw")
+    # request_normalise_flow_output(
+    #     model, "incidence_norm", "incidence_raw", save_results=False
+    # )
+    # model.request_function_output(
+    #     "incidence",
+    #     1e5 * DerivedOutput("incidence_norm") / DerivedOutput("total_population"),
+    # )
+    # request_flow_output(
+    #     model, "passive_notifications_raw", "detection", save_results=False
+    # )
+    # if implement_acf:
+    #     request_flow_output(
+    #         model, "active_notifications_raw", "acf_detection", save_results=False
+    #     )
+    #     sources = ["passive_notifications_raw", "active_notifications_raw"]
+    #     # request_aggregation_output(model,"notifications_raw", sources, save_results=False)
+    # else:
+    #     sources = ["passive_notifications_raw"]
+    # request_aggregation_output(model, "notifications_raw", sources, save_results=False)
+    # # request notifications
+    # request_normalise_flow_output(model, "notifications", "notifications_raw")
+
+
+def request_compartment_output(model, output_name, ages,compartments, save_results=True):
+    model.request_output_for_compartments(
+            output_name, compartments, save_results=save_results
     )
-    model.request_function_output(
-        "incidence",
-        1e5 * DerivedOutput("incidence_norm") / DerivedOutput("total_population"),
-    )
-    request_flow_output(
-        model, "passive_notifications_raw", "detection", save_results=False
-    )
-    if implement_acf:
-        request_flow_output(
-            model, "active_notifications_raw", "acf_detection", save_results=False
+    for age_stratum in ages:
+        # For age-specific population calculations
+        age_output_name = f"{output_name}Xage_{age_stratum}"
+        model.request_output_for_compartments(
+            age_output_name,
+            compartments,
+            strata={'age': str(age_stratum)}, # I've added str to age stratum, It worked
+            save_results=save_results,
         )
-        sources = ["passive_notifications_raw", "active_notifications_raw"]
-        # request_aggregation_output(model,"notifications_raw", sources, save_results=False)
-    else:
-        sources = ["passive_notifications_raw"]
-    request_aggregation_output(model, "notifications_raw", sources, save_results=False)
-    # request notifications
-    request_normalise_flow_output(model, "notifications", "notifications_raw")
-
-
