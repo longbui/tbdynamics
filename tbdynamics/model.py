@@ -54,7 +54,7 @@ def build_model(
     set_starting_conditions(model, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
-    add_infection(model, tex_doc)
+    add_infection(model, latent_compartments,tex_doc)
     add_latency(model, tex_doc)
     # add_detection(model, tex_doc)
     # add_treatment_related_outcomes(model, tex_doc)
@@ -140,7 +140,7 @@ def add_natural_death_flow(model: CompartmentalModel, tex_doc: StandardTexDoc):
     tex_doc.add_line(desc, "Model Structure")
 
 
-def add_infection(model: CompartmentalModel, tex_doc: StandardTexDoc):
+def add_infection(model: CompartmentalModel, latent_compartments, tex_doc: StandardTexDoc):
     """
     Args:
         model: Working compartmental model
@@ -148,9 +148,9 @@ def add_infection(model: CompartmentalModel, tex_doc: StandardTexDoc):
     Returns:
         
     """
-    seed_args = [Time, Parameter('seed_time'), Parameter('seed_duration'), Parameter('seed_rate')]
+    seed_args = [Time, Parameter('seed_time'), 0.1, 1.0]
     voc_seed_func = Function(triangle_wave_func, seed_args)
-    model.add_importation_flow("seeding_infection",voc_seed_func,'susceptible',split_imports=False) # Set seed at time
+    model.add_importation_flow("seeding_infection",voc_seed_func,latent_compartments,split_imports=False) # Set seed at time
 
     process = "infection"
     origin = "susceptible"
@@ -165,38 +165,38 @@ def add_infection(model: CompartmentalModel, tex_doc: StandardTexDoc):
     )
     tex_doc.add_line(desc1, "Model Structure")
 
-    # process = "infection_from_latent"
-    # origin = "late_latent"
-    # destination = "early_latent"
-    # model.add_infection_frequency_flow(
-    #     process,
-    #     Parameter("contact_rate") * Parameter("rr_infection_latent"),
-    #     "late_latent",
-    #     "early_latent",
-    # )
-    # desc2 = (
-    #     f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} "
-    #     f"compartment to the {replace_underscore_with_space(destination)} compartment, "
-    #     "under the frequency-dependent transmission assumption. "
-    # )
+    process = "infection_from_latent"
+    origin = "late_latent"
+    destination = "early_latent"
+    model.add_infection_frequency_flow(
+        process,
+        Parameter("contact_rate") * Parameter("rr_infection_latent"),
+        "late_latent",
+        "early_latent",
+    )
+    desc2 = (
+        f"The {replace_underscore_with_space(process)} process moves people from the {replace_underscore_with_space(origin)} "
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, "
+        "under the frequency-dependent transmission assumption. "
+    )
 
-    # tex_doc.add_line(desc2, "Model Structure")
+    tex_doc.add_line(desc2, "Model Structure")
 
-    # process = "infection_from_recovered"
-    # origin = "recovered"
-    # destination = "early_latent"
-    # model.add_infection_frequency_flow(
-    #     process,
-    #     Parameter("contact_rate") * Parameter("rr_infection_recovered"),
-    #     origin,
-    #     destination,
-    # )
-    # desc3 = (
-    #     f"The {replace_underscore_with_space(process)} process moves people from the {origin} "
-    #     f"compartment to the {replace_underscore_with_space(destination)} compartment, "
-    #     "under the frequency-dependent transmission assumption. "
-    # )
-    # tex_doc.add_line(desc3, "Model Structure")
+    process = "infection_from_recovered"
+    origin = "recovered"
+    destination = "early_latent"
+    model.add_infection_frequency_flow(
+        process,
+        Parameter("contact_rate") * Parameter("rr_infection_recovered"),
+        origin,
+        destination,
+    )
+    desc3 = (
+        f"The {replace_underscore_with_space(process)} process moves people from the {origin} "
+        f"compartment to the {replace_underscore_with_space(destination)} compartment, "
+        "under the frequency-dependent transmission assumption. "
+    )
+    tex_doc.add_line(desc3, "Model Structure")
 
 
 def add_latency(model: CompartmentalModel, tex_doc: StandardTexDoc):
