@@ -4,6 +4,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
+from tbdynamics.utils import triangle_wave_func
 from emutools.tex import StandardTexDoc
 
 from .inputs import get_birth_rate, process_death_rate
@@ -102,8 +103,8 @@ def build_base_model(
 def set_starting_conditions(model, tex_doc: StandardTexDoc):
     start_pop = Parameter("start_population_size")
     init_pop = {
-        "infectious": 1.0,
-        "susceptible": start_pop - 1.0,
+        "infectious": 0.0,
+        "susceptible": start_pop - 0.0,
     }
 
     # Assign to the model
@@ -145,8 +146,12 @@ def add_infection(model: CompartmentalModel, tex_doc: StandardTexDoc):
         model: Working compartmental model
 
     Returns:
-        Description of process added
+        
     """
+    seed_args = [Time, Parameter('seed_time'), Parameter('seed_duration'), Parameter('seed_rate')]
+    voc_seed_func = Function(triangle_wave_func, seed_args)
+    model.add_importation_flow("seeding_infection",voc_seed_func,'susceptible',split_imports=False) # Set seed at time
+
     process = "infection"
     origin = "susceptible"
     destination = "early_latent"
@@ -384,7 +389,7 @@ def get_age_strat(
     compartments, infectious, age_strata, matrix, fixed_params, tex_doc: StandardTexDoc, without_treatment=True
 ) -> str:
     strat = AgeStratification("age", age_strata, compartments)
-    strat.set_mixing_matrix(matrix)
+    # strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
     death_df = process_death_rate(age_strata)
     for age in age_strata:
@@ -684,54 +689,7 @@ def request_output(
         / DerivedOutput("total_population"),
     )
 
-    # # Death
-    # model.request_output_for_flow(
-    #     "mortality_infectious_raw", "infect_death", save_results=True
-    # )
-
-    # sources = ["mortality_infectious_raw"]
-    # request_aggregation_output(model, "mortality_raw", sources, save_results=False)
-    # model.request_cumulative_output(
-    #     "cumulative_deaths", "mortality_raw", start_time=2000
-    # )
-
-    # # Disease incidence
-    # request_flow_output(
-    #     model, "incidence_early_raw", "early_activation", save_results=False
-    # )
-    # request_flow_output(
-    #     model, "incidence_late_raw", "late_activation", save_results=False
-    # )
-    # sources = ["incidence_early_raw", "incidence_late_raw"]
-    # request_aggregation_output(model, "incidence_raw", sources, save_results=False)
-    # model.request_cumulative_output(
-    #     "cumulative_diseased", "incidence_raw", start_time=2000
-    # )
-
-    # # Normalise incidence so that it is per unit time (year), not per timestep
-    # request_normalise_flow_output(model, "incidence_early", "incidence_early_raw")
-    # request_normalise_flow_output(model, "incidence_late", "incidence_late_raw")
-    # request_normalise_flow_output(
-    #     model, "incidence_norm", "incidence_raw", save_results=False
-    # )
-    # model.request_function_output(
-    #     "incidence",
-    #     1e5 * DerivedOutput("incidence_norm") / DerivedOutput("total_population"),
-    # )
-    # request_flow_output(
-    #     model, "passive_notifications_raw", "detection", save_results=False
-    # )
-    # if implement_acf:
-    #     request_flow_output(
-    #         model, "active_notifications_raw", "acf_detection", save_results=False
-    #     )
-    #     sources = ["passive_notifications_raw", "active_notifications_raw"]
-    #     # request_aggregation_output(model,"notifications_raw", sources, save_results=False)
-    # else:
-    #     sources = ["passive_notifications_raw"]
-    # request_aggregation_output(model, "notifications_raw", sources, save_results=False)
-    # # request notifications
-    # request_normalise_flow_output(model, "notifications", "notifications_raw")
+    
 
 
 def request_compartment_output(model, output_name, ages,compartments, save_results=True):
