@@ -116,18 +116,56 @@ def build_contact_matrix(
     # age_strata,
     # filename
 ):
-    values = [[1250.691457  ,  740.4900331 , 1255.1379411 ,  755.99800388,
-         351.92836824,   36.16826398],
-       [ 314.45730134, 3330.01566881,  992.71557558,  924.45607039,
-         256.90791233,   34.21905256],
-       [ 221.15622694,  710.12087625, 4321.24105361, 1576.70431504,
-         604.00225891,   22.48129456],
-       [ 224.33879994,  751.4812055 , 2148.38482347, 2289.91571398,
-         721.8062501 ,   34.84227864],
-       [ 192.9874274 ,  481.62767533, 1300.78238257, 1044.86906425,
-         717.99705055,   39.63652457],
-       [  81.9016913 ,  334.39864375,  382.67445579,  432.07589528,
-         297.04273652,  108.95684725]]
+    values = [
+        [
+            1250.691457,
+            740.4900331,
+            1255.1379411,
+            755.99800388,
+            351.92836824,
+            36.16826398,
+        ],
+        [
+            314.45730134,
+            3330.01566881,
+            992.71557558,
+            924.45607039,
+            256.90791233,
+            34.21905256,
+        ],
+        [
+            221.15622694,
+            710.12087625,
+            4321.24105361,
+            1576.70431504,
+            604.00225891,
+            22.48129456,
+        ],
+        [
+            224.33879994,
+            751.4812055,
+            2148.38482347,
+            2289.91571398,
+            721.8062501,
+            34.84227864,
+        ],
+        [
+            192.9874274,
+            481.62767533,
+            1300.78238257,
+            1044.86906425,
+            717.99705055,
+            39.63652457,
+        ],
+        [
+            81.9016913,
+            334.39864375,
+            382.67445579,
+            432.07589528,
+            297.04273652,
+            108.95684725,
+        ],
+    ]
     matrix = np.array(values)
     # matrix_figsize = 800
     # matrix_fig = go.Figure()
@@ -174,11 +212,12 @@ def replace_underscore_with_space(input_string):
         return input_string.replace("_", " ")
     else:
         return input_string
-    
+
+
 def triangle_wave_func(
-    time: float, 
-    start: float, 
-    duration: float, 
+    time: float,
+    start: float,
+    duration: float,
     peak: float,
 ) -> float:
     """Generate a peaked triangular wave function
@@ -196,4 +235,6 @@ def triangle_wave_func(
     gradient = peak / (duration * 0.5)
     peak_time = start + duration * 0.5
     time_from_peak = jnp.abs(peak_time - time)
-    return jnp.where(time_from_peak < duration * 0.5, peak - time_from_peak * gradient, 0.0)
+    return jnp.where(
+        time_from_peak < duration * 0.5, peak - time_from_peak * gradient, 0.0
+    )

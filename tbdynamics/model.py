@@ -54,7 +54,7 @@ def build_model(
     set_starting_conditions(model, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
-    add_infection(model, latent_compartments,tex_doc)
+    add_infection(model, latent_compartments, tex_doc)
     add_latency(model, tex_doc)
     # add_detection(model, tex_doc)
     # add_treatment_related_outcomes(model, tex_doc)
@@ -69,7 +69,10 @@ def build_model(
     if organ_strat:
         organ_strat = get_organ_strat(fixed_params, infectious_compartments, tex_doc)
         model.stratify_with(organ_strat)
-    request_output(model, age_strata, compartments, latent_compartments, infectious_compartments)
+    seed_infectious(model, 'early_latent', age_strata)
+    request_output(
+        model, age_strata, compartments, latent_compartments, infectious_compartments
+    )
     return model
 
 
@@ -140,17 +143,19 @@ def add_natural_death_flow(model: CompartmentalModel, tex_doc: StandardTexDoc):
     tex_doc.add_line(desc, "Model Structure")
 
 
-def add_infection(model: CompartmentalModel, latent_compartments, tex_doc: StandardTexDoc):
+def add_infection(
+    model: CompartmentalModel, latent_compartments, tex_doc: StandardTexDoc
+):
     """
     Args:
         model: Working compartmental model
 
     Returns:
-        
+
     """
-    seed_args = [Time, Parameter('seed_time'), 0.1, 1.0]
-    voc_seed_func = Function(triangle_wave_func, seed_args)
-    model.add_importation_flow("seeding_infection",voc_seed_func,latent_compartments,split_imports=False) # Set seed at time
+    # seed_args = [Time, Parameter('seed_time'), 0.1, 1.0]
+    # voc_seed_func = Function(triangle_wave_func, seed_args)
+    # model.add_importation_flow("seeding_infection",voc_seed_func,latent_compartments,split_imports=False) # Set seed at time
 
     process = "infection"
     origin = "susceptible"
@@ -386,7 +391,13 @@ def add_acf(model: CompartmentalModel, fixed_params, tex_doc: StandardTexDoc):
 
 
 def get_age_strat(
-    compartments, infectious, age_strata, matrix, fixed_params, tex_doc: StandardTexDoc, without_treatment=True
+    compartments,
+    infectious,
+    age_strata,
+    matrix,
+    fixed_params,
+    tex_doc: StandardTexDoc,
+    without_treatment=True,
 ) -> str:
     strat = AgeStratification("age", age_strata, compartments)
     # strat.set_mixing_matrix(matrix)
@@ -398,7 +409,7 @@ def get_age_strat(
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
-    #Set age-specific late activation rate
+    # Set age-specific late activation rate
     for flow_name, latency_params in fixed_params["age_stratification"].items():
         # is_activation_flow = flow_name in ["late_activation"]
         # if is_activation_flow:
@@ -408,7 +419,7 @@ def get_age_strat(
         }
         strat.set_flow_adjustments(flow_name, adjs)
 
-        #inflate for diabetes
+        # inflate for diabetes
         is_activation_flow = flow_name in ["early_activation", "late_activation"]
         if fixed_params["inflate_reactivation_for_diabetes"] and is_activation_flow:
             # Inflate reactivation rate to account for diabetes.
@@ -432,20 +443,20 @@ def get_age_strat(
                 else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
             )
             if not without_treatment and comp == "on_treatment":
-            # Infectiousness multiplier for treatment
+                # Infectiousness multiplier for treatment
                 infectiousness *= Parameter("on_treatment_infect_multiplier")
 
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
 
-    #Get the time-varying treatment success proportions
+    # Get the time-varying treatment success proportions
     time_variant_tsr = get_sigmoidal_interpolation_function(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
     if not without_treatment:
-    # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
+        # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
         treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
             {},
             {},
@@ -476,7 +487,7 @@ def get_age_strat(
             "15": 0.7375,
             "35": 1.0,
             "50": 1.0,
-            "70": 1.0
+            "70": 1.0,
         }  # Ragonnet et al. (IJE, 2020)
         bcg_adjs = {}
         for age, multiplier in bcg_multiplier_dict.items():
@@ -653,6 +664,35 @@ def get_gender_strat(age_strata, compartments, fixed_params, tex_doc: StandardTe
     return strat
 
 
+def seed_infectious(
+    model: CompartmentalModel,
+    latent_compartments,
+    age_strata
+):
+    """Seed infectious.
+
+    Args:
+        model: The summer epidemiological model
+        latent_compartments: The names of the latent compartments
+
+    """
+
+    seed_time = "seed_time"
+    seed_duration = "seed_duration"
+    seed_rate = "seed_rate"
+
+    seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), Parameter(seed_rate)]
+    voc_seed_func = Function(triangle_wave_func, seed_args)
+    for age in age_strata:
+        model.add_importation_flow(
+            'seed_infectious',
+            voc_seed_func,
+            latent_compartments,
+            dest_strata = {'age': str(age)},
+            split_imports=True,
+        )
+
+
 def request_output(
     model: CompartmentalModel,
     age_strata,
@@ -665,7 +705,7 @@ def request_output(
     Get the applicable outputs
     """
     request_compartment_output(
-        model, "total_population", age_strata ,compartments, save_results=True
+        model, "total_population", age_strata, compartments, save_results=True
     )
     model.request_output_for_compartments(
         "latent_population_size", latent_compartments, save_results=True
@@ -689,12 +729,12 @@ def request_output(
         / DerivedOutput("total_population"),
     )
 
-    
 
-
-def request_compartment_output(model, output_name, ages,compartments, save_results=True):
+def request_compartment_output(
+    model, output_name, ages, compartments, save_results=True
+):
     model.request_output_for_compartments(
-            output_name, compartments, save_results=save_results
+        output_name, compartments, save_results=save_results
     )
     for age_stratum in ages:
         # For age-specific population calculations
@@ -702,6 +742,8 @@ def request_compartment_output(model, output_name, ages,compartments, save_resul
         model.request_output_for_compartments(
             age_output_name,
             compartments,
-            strata={'age': str(age_stratum)}, # I've added str to age stratum, It worked
+            strata={
+                "age": str(age_stratum)
+            },  # I've added str to age stratum, It worked
             save_results=save_results,
         )
