@@ -54,22 +54,22 @@ def build_model(
     set_starting_conditions(model, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
-    add_infection(model, latent_compartments, tex_doc)
+    add_infection(model, tex_doc)
     add_latency(model, tex_doc)
-    # add_detection(model, tex_doc)
-    # add_treatment_related_outcomes(model, tex_doc)
+    add_detection(model, tex_doc)
+    add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     age_strat = get_age_strat(
-        compartments, infectious_compartments, age_strata, matrix, fixed_params, tex_doc
+        compartments, infectious_compartments, age_strata, fixed_params, matrix, tex_doc
     )
     model.stratify_with(age_strat)
     if organ_strat:
         organ_strat = get_organ_strat(fixed_params, infectious_compartments, tex_doc)
         model.stratify_with(organ_strat)
-    seed_infectious(model, 'early_latent', age_strata)
+    #seed_infectious(model, 'infectious', age_strata)
     request_output(
         model, age_strata, compartments, latent_compartments, infectious_compartments
     )
@@ -106,8 +106,8 @@ def build_base_model(
 def set_starting_conditions(model, tex_doc: StandardTexDoc):
     start_pop = Parameter("start_population_size")
     init_pop = {
-        "infectious": 0.0,
-        "susceptible": start_pop - 0.0,
+        'infectious': 1.0,
+        'susceptible': start_pop - 1.0,
     }
 
     # Assign to the model
@@ -144,7 +144,7 @@ def add_natural_death_flow(model: CompartmentalModel, tex_doc: StandardTexDoc):
 
 
 def add_infection(
-    model: CompartmentalModel, latent_compartments, tex_doc: StandardTexDoc
+    model: CompartmentalModel, tex_doc: StandardTexDoc
 ):
     """
     Args:
@@ -205,14 +205,13 @@ def add_infection(
 
 
 def add_latency(model: CompartmentalModel, tex_doc: StandardTexDoc):
-    # add stabilization process
-    stabilisation_rate = 1.0  # later adjusted by age group
+    # add stabilization process 
     process = "stabilisation"
     origin = "early_latent"
     destination = "late_latent"
     model.add_transition_flow(
         process,
-        stabilisation_rate,
+        1, # later adjusted by age group
         origin,
         destination,
     )
@@ -223,13 +222,12 @@ def add_latency(model: CompartmentalModel, tex_doc: StandardTexDoc):
     )
     tex_doc.add_line(desc1, "Model Structure")
     # Add the early activattion process
-    early_activation_rate = 1.0  # later adjusted by age group
     process = "early_activation"
     origin = "early_latent"
     destination = "infectious"
     model.add_transition_flow(
         process,
-        early_activation_rate,
+        1.0, # later adjusted by age group
         origin,
         destination,
     )
@@ -338,7 +336,7 @@ def add_self_recovery(model: CompartmentalModel, tex_doc: StandardTexDoc):
     destination = "recovered"
     model.add_transition_flow(
         "self_recovery",
-        0.2,
+        .2,
         origin,
         destination,
     )
@@ -349,13 +347,12 @@ def add_self_recovery(model: CompartmentalModel, tex_doc: StandardTexDoc):
     )
     tex_doc.add_line(desc, "Model Structure")
 
-
 def add_infect_death(model: CompartmentalModel, tex_doc: StandardTexDoc) -> str:
     process = "infect_death"
     origin = "infectious"
     model.add_death_flow(
         "infect_death",
-        Parameter("infect_death_rate_unstratified"),
+        0.2,
         "infectious",
     )
     desc = f"The {replace_underscore_with_space(process)} process moves people from the {origin}"
@@ -394,13 +391,13 @@ def get_age_strat(
     compartments,
     infectious,
     age_strata,
-    matrix,
     fixed_params,
+    matrix,
     tex_doc: StandardTexDoc,
-    without_treatment=True,
 ) -> str:
-    strat = AgeStratification("age", age_strata, compartments)
-    # strat.set_mixing_matrix(matrix)
+    strat = AgeStratification('age', age_strata, compartments)
+    if matrix is not None:
+        strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
     death_df = process_death_rate(age_strata)
     for age in age_strata:
@@ -408,43 +405,46 @@ def get_age_strat(
             death_df.index, death_df[age]
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
-    strat.set_flow_adjustments("universal_death", death_adjs)
+    strat.set_flow_adjustments('universal_death', death_adjs)
     # Set age-specific late activation rate
-    for flow_name, latency_params in fixed_params["age_stratification"].items():
-        # is_activation_flow = flow_name in ["late_activation"]
-        # if is_activation_flow:
+    for flow_name, latency_params in fixed_params['age_latency'].items():
+        #is_activation_flow = flow_name in ["late_activation"] 
+        # if flow_name in ["late_activation"]: # adjust stratification for late activation
         adjs = {
             str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])])
             for t in age_strata
         }
         strat.set_flow_adjustments(flow_name, adjs)
 
-        # inflate for diabetes
-        is_activation_flow = flow_name in ["early_activation", "late_activation"]
-        if fixed_params["inflate_reactivation_for_diabetes"] and is_activation_flow:
-            # Inflate reactivation rate to account for diabetes.
-            for age in age_strata:
-                adjs[str(age)] = Function(
-                    get_latency_with_diabetes,
-                    [
-                        Time,
-                        fixed_params["prop_diabetes"][age],
-                        adjs[str(age)],
-                        Parameter("rr_progression_diabetes"),
-                    ],
-                )
-    inf_switch_age = fixed_params["age_infectiousness_switch"]
+    # inflate for diabetes
+    # is_activation_flow = flow_name in ['early_activation', 'late_activation']
+    # if fixed_params['inflate_reactivation_for_diabetes'] and is_activation_flow:
+    #         # Inflate reactivation rate to account for diabetes.
+    #         for age in age_strata:
+    #             adjs[str(age)] = Function(
+    #                 get_latency_with_diabetes,
+    #                 [
+    #                     Time,
+    #                     fixed_params['prop_diabetes'][age],
+    #                     adjs[str(age)],
+    #                     Parameter('rr_progression_diabetes'),
+    #                 ],
+    #             )
+    inf_switch_age = fixed_params['age_infectiousness_switch']
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
-            infectiousness = (
-                1.0
-                if age_low == age_strata[-1]
-                else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
-            )
-            if not without_treatment and comp == "on_treatment":
-                # Infectiousness multiplier for treatment
-                infectiousness *= Parameter("on_treatment_infect_multiplier")
+            if comp != "on_treatment":
+                infectiousness = (
+                    1.0
+                    if age_low == age_strata[-1]
+                    else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
+                )
+            else:
+                infectiousness *= 1
+            # if comp == "on_treatment":
+            #     # Infectiousness multiplier for treatment
+            #     infectiousness *= Parameter("on_treatment_infect_multiplier")
 
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
@@ -455,60 +455,59 @@ def get_age_strat(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-    if not without_treatment:
         # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
-        treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
-            {},
-            {},
-            {},
-        )
-        for age in age_strata:
-            death_rate = universal_death_funcs[age]
-            treatment_outcomes = Function(
-                get_treatment_outcomes,
-                [
-                    fixed_params["treatment_duration"],
-                    fixed_params["prop_death_among_negative_tx_outcome"],
-                    death_rate,
-                    time_variant_tsr,
-                ],
-            )
-            treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
-            treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
-            treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
-        strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
-        strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
-        strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
+    # treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
+    #         {},
+    #         {},
+    #         {},
+    #     )
+    # for age in age_strata:
+    #     death_rate = universal_death_funcs[age]
+    #     treatment_outcomes = Function(
+    #         get_treatment_outcomes,
+    #             [
+    #                 fixed_params["treatment_duration"],
+    #                 fixed_params["prop_death_among_negative_tx_outcome"],
+    #                 death_rate,
+    #                 time_variant_tsr,
+    #             ],
+    #         )
+    #     treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
+    #     treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
+    #     treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
+    # strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
+    # strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
+    # strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
 
         # Add BCG effect without stratifying for BCG
-        bcg_multiplier_dict = {
-            "0": 0.3,
-            "5": 0.3,
-            "15": 0.7375,
-            "35": 1.0,
-            "50": 1.0,
-            "70": 1.0,
-        }  # Ragonnet et al. (IJE, 2020)
-        bcg_adjs = {}
-        for age, multiplier in bcg_multiplier_dict.items():
-            if multiplier < 1.0:
-                bcg_adjs[str(age)] = Multiply(
-                    Function(
-                        bcg_multiplier_func,
-                        [
-                            get_sigmoidal_interpolation_function(
-                                list(fixed_params["time_variant_bcg_perc"].keys()),
-                                list(fixed_params["time_variant_bcg_perc"].values()),
-                                Time - get_average_age_for_bcg(age, age_strata),
-                            ),
-                            multiplier,
-                        ],
-                    )
-                )
-            else:
-                bcg_adjs[str(age)] = None
+        # bcg_multiplier_dict = {
+        #     "0": 0.3,
+        #     "5": 0.3,
+        #     "15": 0.7375,
+        #     "35": 1.0,
+        #     "50": 1.0,
+        #     "70": 1.0,
+        # }  # Ragonnet et al. (IJE, 2020)
+        # bcg_adjs = {}
+        # for age, multiplier in bcg_multiplier_dict.items():
+        #     if multiplier < 1.0:
+        #         bcg_adjs[str(age)] = Multiply(
+        #             Function(
+        #                 bcg_multiplier_func,
+        #                 [
+        #                     get_sigmoidal_interpolation_function(
+        #                         list(fixed_params["time_variant_bcg_perc"].keys()),
+        #                         list(fixed_params["time_variant_bcg_perc"].values()),
+        #                         Time - get_average_age_for_bcg(age, age_strata),
+        #                     ),
+        #                     multiplier,
+        #                 ],
+        #             )
+        #         )
+        #     else:
+        #         bcg_adjs[str(age)] = None
 
-        strat.set_flow_adjustments("infection", bcg_adjs)
+        # strat.set_flow_adjustments("infection", bcg_adjs)
     desc = (
         "The age stratification adjusts following process: (1) The universal death by age group. The data was taken from autumn's database."
         " (2) The early and late activation"
@@ -677,9 +676,9 @@ def seed_infectious(
 
     """
 
-    seed_time = "seed_time"
-    seed_duration = "seed_duration"
-    seed_rate = "seed_rate"
+    seed_time = 'seed_time'
+    seed_duration = 'seed_duration'
+    seed_rate = 'seed_rate'
 
     seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), Parameter(seed_rate)]
     voc_seed_func = Function(triangle_wave_func, seed_args)
@@ -744,6 +743,6 @@ def request_compartment_output(
             compartments,
             strata={
                 "age": str(age_stratum)
-            },  # I've added str to age stratum, It worked
+            },  
             save_results=save_results,
         )
