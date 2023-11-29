@@ -47,14 +47,20 @@ def build_model(
     fixed_params,
     tex_doc: StandardTexDoc,
     organ_strat=True,
+    add_triangular=False
 ):
     model = build_base_model(
         compartments, infectious_compartments, time_start, time_end, time_step, tex_doc
     )
-    set_starting_conditions(model, tex_doc)
+    if add_triangular:
+        set_starting_conditions(model,0, tex_doc)
+        seed_infectious(model,age_strata) # I set infectious seed here by injecting the triangular function
+    else:
+        set_starting_conditions(model,1, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
     add_infection(model, tex_doc)
+   
     add_latency(model, tex_doc)
     add_detection(model, tex_doc)
     add_treatment_related_outcomes(model, tex_doc)
@@ -103,11 +109,11 @@ def build_base_model(
     return model
 
 
-def set_starting_conditions(model, tex_doc: StandardTexDoc):
+def set_starting_conditions(model, num_infectious, tex_doc: StandardTexDoc):
     start_pop = Parameter("start_population_size")
     init_pop = {
-        'infectious': 1.0,
-        'susceptible': start_pop - 1.0,
+        'infectious': num_infectious,
+        'susceptible': start_pop - num_infectious,
     }
 
     # Assign to the model
@@ -665,7 +671,6 @@ def get_gender_strat(age_strata, compartments, fixed_params, tex_doc: StandardTe
 
 def seed_infectious(
     model: CompartmentalModel,
-    latent_compartments,
     age_strata
 ):
     """Seed infectious.
@@ -679,16 +684,15 @@ def seed_infectious(
     seed_time = 'seed_time'
     seed_duration = 'seed_duration'
     seed_rate = 'seed_rate'
-
     seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), Parameter(seed_rate)]
     voc_seed_func = Function(triangle_wave_func, seed_args)
     for age in age_strata:
         model.add_importation_flow(
             'seed_infectious',
             voc_seed_func,
-            latent_compartments,
+            'infectious',
             dest_strata = {'age': str(age)},
-            split_imports=True,
+            split_imports=False,
         )
 
 
