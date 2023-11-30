@@ -60,10 +60,9 @@ def build_model(
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
     add_infection(model, tex_doc)
-   
     add_latency(model, tex_doc)
-    add_detection(model, tex_doc)
-    add_treatment_related_outcomes(model, tex_doc)
+    #add_detection(model, tex_doc)
+    #add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
@@ -686,14 +685,12 @@ def seed_infectious(
     seed_rate = 'seed_rate'
     seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), Parameter(seed_rate)]
     voc_seed_func = Function(triangle_wave_func, seed_args)
-    for age in age_strata:
-        model.add_importation_flow(
-            'seed_infectious',
-            voc_seed_func,
-            'infectious',
-            dest_strata = {'age': str(age)},
-            split_imports=False,
-        )
+    model.add_importation_flow(
+        'seed_infectious',
+        voc_seed_func,
+        'infectious',
+        split_imports=False,
+    )
 
 
 def request_output(
