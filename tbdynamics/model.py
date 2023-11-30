@@ -54,19 +54,19 @@ def build_model(
     )
     if add_triangular:
         set_starting_conditions(model,0, tex_doc)
-        seed_infectious(model,age_strata) # I set infectious seed here by injecting the triangular function
+        seed_infectious(model) # I set infectious seed here by injecting the triangular function
     else:
         set_starting_conditions(model,1, tex_doc)
     add_entry_flow(model, tex_doc)
     add_natural_death_flow(model, tex_doc)
     add_infection(model, tex_doc)
     add_latency(model, tex_doc)
-    #add_detection(model, tex_doc)
-    #add_treatment_related_outcomes(model, tex_doc)
+    add_detection(model, tex_doc)
+    add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
-    # add_acf(model, fixed_params, tex_doc)
+    add_acf(model, fixed_params, tex_doc)
     age_strat = get_age_strat(
         compartments, infectious_compartments, age_strata, fixed_params, matrix, tex_doc
     )
@@ -670,7 +670,6 @@ def get_gender_strat(age_strata, compartments, fixed_params, tex_doc: StandardTe
 
 def seed_infectious(
     model: CompartmentalModel,
-    age_strata
 ):
     """Seed infectious.
 
@@ -682,8 +681,7 @@ def seed_infectious(
 
     seed_time = 'seed_time'
     seed_duration = 'seed_duration'
-    seed_rate = 'seed_rate'
-    seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), Parameter(seed_rate)]
+    seed_args = [Time, Parameter(seed_time), Parameter(seed_duration), 1]
     voc_seed_func = Function(triangle_wave_func, seed_args)
     model.add_importation_flow(
         'seed_infectious',
