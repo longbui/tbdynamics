@@ -61,8 +61,8 @@ def build_model(
     add_natural_death_flow(model, tex_doc)
     add_infection(model, tex_doc)
     add_latency(model, tex_doc)
-    add_detection(model, tex_doc)
-    add_treatment_related_outcomes(model, tex_doc)
+    #add_detection(model, tex_doc)
+    #add_treatment_related_outcomes(model, tex_doc)
     add_self_recovery(model, tex_doc)
     # add_acf(model, fixed_params, tex_doc)
     add_infect_death(model, tex_doc)
@@ -587,7 +587,7 @@ def get_organ_strat(
                     Parameter("acf_scaleup_shape"),
                     1990,
                     Parameter("acf_start_asymp"),
-                    1.0,
+                    0.4,
                 ],
             )
             * fixed_params[param_name]
