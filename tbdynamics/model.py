@@ -101,13 +101,6 @@ def add_natural_death_flow(model: CompartmentalModel):
 
 
 def add_infection(model: CompartmentalModel):
-    """
-    Args:
-        model: Working compartmental model
-
-    Returns:
-
-    """
     # seed_args = [Time, Parameter('seed_time'), 0.1, 1.0]
     # voc_seed_func = Function(triangle_wave_func, seed_args)
     # model.add_importation_flow("seeding_infection",voc_seed_func,latent_compartments,split_imports=False) # Set seed at time
@@ -174,61 +167,12 @@ def add_latency(model: CompartmentalModel):
     )
 
 
-def add_detection(model: CompartmentalModel) -> str:
-    detection_rate = 1.0  # later adjusted by organ
-    process = "detection"
-    origin = "infectious"
-    destination = "on_treatment"
-    model.add_transition_flow(
-        process,
-        detection_rate,
-        origin,
-        destination,
-    )
-
-
-def add_treatment_related_outcomes(
-    model: CompartmentalModel,
-):
-    # Treatment recovery, releapse, death flows.
-    treatment_recovery_rate = 1.0  #  later adjusted by organ
-    process = "treatment_recovery"
-    origin = "on_treatment"
-    destination = "recovered"
-    model.add_transition_flow(
-        process,
-        treatment_recovery_rate,
-        origin,
-        destination,
-    )
-
-    treatment_death_rate = 1.0  #  later adjusted by age
-    process = "treatment_death"
-    origin = "on_treatment"
-    model.add_death_flow(
-        process,
-        treatment_death_rate,
-        "on_treatment",
-    )
-
-    relapse_rate = 1.0  #  later adjusted by age
-    process = "early_activation"
-    origin = "on_treatment"
-    destination = "infectious"
-    model.add_transition_flow(
-        "relapse",
-        relapse_rate,
-        "on_treatment",
-        "infectious",
-    )
-
-
 def add_self_recovery(model: CompartmentalModel):
     process = "self_recovery"
     origin = "infectious"
     destination = "recovered"
     model.add_transition_flow(
-        "self_recovery",
+        process,
         0.2,
         origin,
         destination,
@@ -239,32 +183,10 @@ def add_infect_death(model: CompartmentalModel) -> str:
     process = "infect_death"
     origin = "infectious"
     model.add_death_flow(
-        "infect_death",
-        0.2,
-        "infectious",
-    )
-
-
-def add_acf(model: CompartmentalModel, fixed_params):
-    # Universal active case funding is applied
-    times = list(fixed_params["time_variant_screening_rate"])
-    vals = [
-        v * fixed_params["acf_screening_sensitivity"]
-        for v in fixed_params["time_variant_screening_rate"].values()
-    ]
-
-    acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
-
-    process = "acf_detection"
-    origin = "infectious"
-    destination = "on_treatment"
-    model.add_transition_flow(
         process,
-        acf_detection_rate,
+        0.2,
         origin,
-        destination,
     )
-
 
 def get_age_strat(
     compartments,
