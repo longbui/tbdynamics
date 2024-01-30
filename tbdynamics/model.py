@@ -4,7 +4,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, DerivedOutput, Function, Time
 from summer2 import AgeStratification, Overwrite, Multiply, Stratification
-from tbdynamics.utils import triangle_wave_func
+from tbdynamics.utils import triangle_wave_func, get_latency_with_diabetes
 from .inputs import get_birth_rate, process_death_rate
 from .utils import (
     get_average_sigmoid,
@@ -55,6 +55,8 @@ def build_model(
     add_latency(model)
     add_self_recovery(model)
     add_infect_death(model)
+    add_detection(model)
+    add_acf(model, fixed_params)
     age_strat = get_age_strat(
         compartments, infectious_compartments, age_strata, fixed_params, matrix
     )
@@ -188,6 +190,7 @@ def add_infect_death(model: CompartmentalModel) -> str:
         origin,
     )
 
+
 def get_age_strat(
     compartments,
     infectious,
@@ -217,19 +220,19 @@ def get_age_strat(
         strat.set_flow_adjustments(flow_name, adjs)
 
     # inflate for diabetes
-    # is_activation_flow = flow_name in ['early_activation', 'late_activation']
-    # if fixed_params['inflate_reactivation_for_diabetes'] and is_activation_flow:
-    #         # Inflate reactivation rate to account for diabetes.
-    #         for age in age_strata:
-    #             adjs[str(age)] = Function(
-    #                 get_latency_with_diabetes,
-    #                 [
-    #                     Time,
-    #                     fixed_params['prop_diabetes'][age],
-    #                     adjs[str(age)],
-    #                     Parameter('rr_progression_diabetes'),
-    #                 ],
-    #             )
+    is_activation_flow = flow_name in ['early_activation', 'late_activation']
+    if fixed_params['inflate_reactivation_for_diabetes'] and is_activation_flow:
+            # Inflate reactivation rate to account for diabetes.
+            for age in age_strata:
+                adjs[str(age)] = Function(
+                    get_latency_with_diabetes,
+                    [
+                        Time,
+                        fixed_params['prop_diabetes'][age],
+                        adjs[str(age)],
+                        Parameter('rr_progression_diabetes'),
+                    ],
+                )
     inf_switch_age = fixed_params["age_infectiousness_switch"]
     for comp in infectious:
         inf_adjs = {}
@@ -316,43 +319,53 @@ def get_organ_strat(
     return strat
 
 
-def get_gender_strat(age_strata, compartments, fixed_params):
-    requested_strata = fixed_params["gender"]["strata"]
-    strat = Stratification("gender", requested_strata, compartments)
-    # props = fixed_params['gender']['proportions']
-    # Pre-process generic flow adjustments:
-    # IF infection is adjusted and other infection flows NOT adjusted
-    # THEN use the infection adjustment for the other infection flows
+def add_detection(model: CompartmentalModel) -> str:
+    detection_rate = 1.0  # later adjusted by organ
+    process = "detection"
+    origin = "infectious"
+    destination = "on_treatment"
+    model.add_transition_flow(
+        process,
+        detection_rate,
+        origin,
+        destination,
+    )
 
-    adjustments = fixed_params["gender"]["adjustments"]
-    adjs = {}
-    if "infection" in adjustments.keys():
-        inf_adjs = fixed_params["gender"]["adjustments"]["infection"]
-        item = {"infection": {k: v for k, v in inf_adjs.items()}}
-        adjs.update(item)
-        for stage in ["latent", "recovered"]:
-            flow_name = f"infection_from_{stage}"
-            if flow_name not in adjs:
-                adjs[flow_name] = adjs["infection"]
 
-    # print(adjs)
+def add_treatment_related_outcomes(
+    model: CompartmentalModel,
+):
+    # Treatment recovery, releapse, death flows.
+    treatment_recovery_rate = 1.0  #  later adjusted by organ
+    process = "treatment_recovery"
+    origin = "on_treatment"
+    destination = "recovered"
+    model.add_transition_flow(
+        process,
+        treatment_recovery_rate,
+        origin,
+        destination,
+    )
 
-    # Set birth flow adjustments
-    adjs["birth"] = fixed_params["gender"]["proportions"]
-    # # # Set birth flow adjustments. Do not adjust for age under 15
-    for flow_name, adjustment in adjs.items():
-        for age in age_strata:  # only set adjustment for age > 15
-            if flow_name == "birth":
-                if age < 15:
-                    adj = {k: Multiply(1.0) for k in adjustment.keys()}
-                else:
-                    adj = {k: Multiply(v) for k, v in adjustment.items()}
-                strat.set_flow_adjustments(flow_name, adj)
-            else:
-                adj = {k: Multiply(v) for k, v in adjustment.items()}
+    treatment_death_rate = 1.0  #  later adjusted by age
+    process = "treatment_death"
+    origin = "on_treatment"
+    model.add_death_flow(
+        process,
+        treatment_death_rate,
+        "on_treatment",
+    )
 
-    strat.set_flow_adjustments(flow_name, adj, source_strata={"age": str(age)})
-    return strat
+    relapse_rate = 1.0  #  later adjusted by age
+    process = "early_activation"
+    origin = "on_treatment"
+    destination = "infectious"
+    model.add_transition_flow(
+        "relapse",
+        relapse_rate,
+        "on_treatment",
+        "infectious",
+    )
 
 
 def seed_infectious(
@@ -377,6 +390,26 @@ def seed_infectious(
         split_imports=False,
     )
 
+def add_acf(model: CompartmentalModel, fixed_params):
+    # Universal active case funding is applied
+    times = list(fixed_params["time_variant_screening_rate"])
+    vals = [
+        v * fixed_params["acf_screening_sensitivity"]
+        for v in fixed_params["time_variant_screening_rate"].values()
+    ]
+
+    acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
+
+    process = "acf_detection"
+    origin = "infectious"
+    destination = "on_treatment"
+    model.add_transition_flow(
+        process,
+        acf_detection_rate,
+        origin,
+        destination,
+    )
+
 
 def request_output(
     model: CompartmentalModel,
@@ -384,7 +417,6 @@ def request_output(
     compartments,
     latent_compartments,
     infectious_compartments,
-    implement_acf=False,
 ):
     """
     Get the applicable outputs
