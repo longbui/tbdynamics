@@ -8,6 +8,7 @@ from tbdynamics.utils import triangle_wave_func, get_latency_with_diabetes
 from .inputs import get_birth_rate, process_death_rate
 from .utils import (
     get_average_sigmoid,
+    tanh_based_scaleup,
 )
 
 
@@ -56,7 +57,6 @@ def build_model(
     add_self_recovery(model)
     add_infect_death(model)
     add_detection(model)
-    add_acf(model, fixed_params)
     age_strat = get_age_strat(
         compartments, infectious_compartments, age_strata, fixed_params, matrix
     )
@@ -305,6 +305,7 @@ def get_organ_strat(
     )
     strat.set_flow_adjustments("self_recovery", self_recovery_adjs)
 
+
     # Adjust the progression rates by organ using the requested incidence proportions
     splitting_proportions = {
         "smear_positive": fixed_params["incidence_props_pulmonary"]
@@ -319,7 +320,7 @@ def get_organ_strat(
     return strat
 
 
-def add_detection(model: CompartmentalModel) -> str:
+def add_detection(model: CompartmentalModel):
     detection_rate = 1.0  # later adjusted by organ
     process = "detection"
     origin = "infectious"
@@ -369,7 +370,7 @@ def add_treatment_related_outcomes(
 
 
 def seed_infectious(
-    model: CompartmentalModel,
+    model: CompartmentalModel
 ):
     """Seed infectious.
 
@@ -389,27 +390,6 @@ def seed_infectious(
         "infectious",
         split_imports=False,
     )
-
-def add_acf(model: CompartmentalModel, fixed_params):
-    # Universal active case funding is applied
-    times = list(fixed_params["time_variant_screening_rate"])
-    vals = [
-        v * fixed_params["acf_screening_sensitivity"]
-        for v in fixed_params["time_variant_screening_rate"].values()
-    ]
-
-    acf_detection_rate = get_sigmoidal_interpolation_function(times, vals)
-
-    process = "acf_detection"
-    origin = "infectious"
-    destination = "on_treatment"
-    model.add_transition_flow(
-        process,
-        acf_detection_rate,
-        origin,
-        destination,
-    )
-
 
 def request_output(
     model: CompartmentalModel,
@@ -445,6 +425,10 @@ def request_output(
         * DerivedOutput("infectious_population_size")
         / DerivedOutput("total_population"),
     )
+
+    # request notification
+    model.request_output_for_flow("notifications", "detection", save_results=True)
+
 
 
 def request_compartment_output(
