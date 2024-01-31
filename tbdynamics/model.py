@@ -197,7 +197,7 @@ def get_age_strat(
     age_strata,
     fixed_params,
     matrix,
-) -> str:
+):
     strat = AgeStratification("age", age_strata, compartments)
     if matrix is not None:
         strat.set_mixing_matrix(matrix)
@@ -219,20 +219,7 @@ def get_age_strat(
         }
         strat.set_flow_adjustments(flow_name, adjs)
 
-    # inflate for diabetes
-    is_activation_flow = flow_name in ['early_activation', 'late_activation']
-    if fixed_params['inflate_reactivation_for_diabetes'] and is_activation_flow:
-            # Inflate reactivation rate to account for diabetes.
-            for age in age_strata:
-                adjs[str(age)] = Function(
-                    get_latency_with_diabetes,
-                    [
-                        Time,
-                        fixed_params['prop_diabetes'][age],
-                        adjs[str(age)],
-                        Parameter('rr_progression_diabetes'),
-                    ],
-                )
+    
     inf_switch_age = fixed_params["age_infectiousness_switch"]
     for comp in infectious:
         inf_adjs = {}
@@ -254,120 +241,6 @@ def get_age_strat(
         strat.add_infectiousness_adjustments(comp, inf_adjs)
 
     return strat
-
-
-def get_organ_strat(
-    fixed_params: dict,
-    infectious_compartments: list,
-):
-    ORGAN_STRATA = [
-        "smear_positive",
-        "smear_negative",
-        "extrapulmonary",
-    ]
-    strat = Stratification("organ", ORGAN_STRATA, infectious_compartments)
-    # Better if do in loop
-    # Define infectiousness adjustment by organ status
-    inf_adj = {}
-    inf_adj["smear_positive"] = Multiply(1)
-    inf_adj["smear_negative"] = Multiply(
-        fixed_params["smear_negative_infect_multiplier"]
-    )
-    inf_adj["extrapulmonary"] = Multiply(
-        fixed_params["extrapulmonary_infect_multiplier"]
-    )
-    for comp in infectious_compartments:
-        strat.add_infectiousness_adjustments(comp, inf_adj)
-
-    # Define different natural history (infection death) by organ status
-    infect_death_adjs = {}
-    infect_death_adjs["smear_positive"] = Overwrite(
-        Parameter("smear_positive_death_rate")
-    )
-    infect_death_adjs["smear_negative"] = Overwrite(
-        Parameter("smear_negative_death_rate")
-    )
-    infect_death_adjs["extrapulmonary"] = Overwrite(
-        Parameter("smear_negative_death_rate")
-    )
-    strat.set_flow_adjustments("infect_death", infect_death_adjs)
-
-    # Define different natural history (self recovery) by organ status
-    self_recovery_adjs = {}
-    self_recovery_adjs["smear_positive"] = Overwrite(
-        Parameter("smear_positive_self_recovery")
-    )
-    self_recovery_adjs["smear_negative"] = Overwrite(
-        Parameter("smear_negative_self_recovery")
-    )
-    self_recovery_adjs["extrapulmonary"] = Overwrite(
-        Parameter("smear_negative_self_recovery")
-    )
-    strat.set_flow_adjustments("self_recovery", self_recovery_adjs)
-
-
-    # Adjust the progression rates by organ using the requested incidence proportions
-    splitting_proportions = {
-        "smear_positive": fixed_params["incidence_props_pulmonary"]
-        * fixed_params["incidence_props_smear_positive_among_pulmonary"],
-        "smear_negative": fixed_params["incidence_props_pulmonary"]
-        * (1.0 - fixed_params["incidence_props_smear_positive_among_pulmonary"]),
-        "extrapulmonary": 1.0 - fixed_params["incidence_props_pulmonary"],
-    }
-    for flow_name in ["early_activation", "late_activation"]:
-        flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
-        strat.set_flow_adjustments(flow_name, flow_adjs)
-    return strat
-
-
-def add_detection(model: CompartmentalModel):
-    detection_rate = 1.0  # later adjusted by organ
-    process = "detection"
-    origin = "infectious"
-    destination = "on_treatment"
-    model.add_transition_flow(
-        process,
-        detection_rate,
-        origin,
-        destination,
-    )
-
-
-def add_treatment_related_outcomes(
-    model: CompartmentalModel,
-):
-    # Treatment recovery, releapse, death flows.
-    treatment_recovery_rate = 1.0  #  later adjusted by organ
-    process = "treatment_recovery"
-    origin = "on_treatment"
-    destination = "recovered"
-    model.add_transition_flow(
-        process,
-        treatment_recovery_rate,
-        origin,
-        destination,
-    )
-
-    treatment_death_rate = 1.0  #  later adjusted by age
-    process = "treatment_death"
-    origin = "on_treatment"
-    model.add_death_flow(
-        process,
-        treatment_death_rate,
-        "on_treatment",
-    )
-
-    relapse_rate = 1.0  #  later adjusted by age
-    process = "early_activation"
-    origin = "on_treatment"
-    destination = "infectious"
-    model.add_transition_flow(
-        "relapse",
-        relapse_rate,
-        "on_treatment",
-        "infectious",
-    )
-
 
 def seed_infectious(
     model: CompartmentalModel
