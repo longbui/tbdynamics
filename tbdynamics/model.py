@@ -2,10 +2,11 @@ from jax import numpy as jnp
 from pathlib import Path
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
-from summer2.parameters import Parameter, Function, Time
-from summer2 import AgeStratification, Overwrite, Multiply, Stratification
+from summer2.parameters import Parameter, Function, Time,  DerivedOutput
+from summer2 import AgeStratification, Overwrite, Multiply
+
 from tbdynamics.utils import triangle_wave_func
-from .inputs import get_birth_rate, get_death_rate
+from .inputs import get_birth_rate, process_death_rate
 from .utils import (
     get_average_sigmoid,
 )
@@ -179,26 +180,15 @@ def get_age_strat(
     if matrix is not None:
         strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
-    death_df = get_death_rate()
+    death_df = process_death_rate(age_strata)
     for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(
             death_df.index, death_df[age]
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     
-    for comp in compartments:
-        flow_name = f"universal_death_for_{comp}"
-        strat.set_flow_adjustments(flow_name, death_adjs)
+    strat.set_flow_adjustments('universal_death', death_adjs)
 
-    # Set age-specific late activation rate
-    for flow_name, latency_params in fixed_params["age_latency"].items():
-        # is_activation_flow = flow_name in ["late_activation"]
-        # if flow_name in ["late_activation"]: # adjust stratification for late activation
-        adjs = {
-            str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])])
-            for t in age_strata
-        }
-        strat.set_flow_adjustments(flow_name, adjs)
 
     inf_switch_age = fixed_params["age_infectiousness_switch"]
     for comp in infectious:
