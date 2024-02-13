@@ -228,51 +228,19 @@ def seed_infectious(model: CompartmentalModel):
 
 def request_output(
     model: CompartmentalModel,
-    age_strata,
     compartments,
-    latent_compartments,
-    infectious_compartments,
+
 ):
     """
     Get the applicable outputs
     """
     request_compartment_output(
-        model, "total_population", age_strata, compartments, save_results=True
-    )
-    model.request_output_for_compartments(
-        "latent_population_size", latent_compartments, save_results=True
-    )
-    # latency
-    model.request_function_output(
-        "percentage_latent",
-        100.0
-        * DerivedOutput("latent_population_size")
-        / DerivedOutput("total_population"),
-    )
-
-    # Prevalence
-    model.request_output_for_compartments(
-        "infectious_population_size", infectious_compartments, save_results=True
-    )
-    model.request_function_output(
-        "prevalence_infectious",
-        1e5
-        * DerivedOutput("infectious_population_size")
-        / DerivedOutput("total_population"),
+        model, "total_population", compartments, save_results=True
     )
 
 def request_compartment_output(
-    model, output_name, ages, compartments, save_results=True
+    model, output_name, compartments, save_results=True
 ):
     model.request_output_for_compartments(
         output_name, compartments, save_results=save_results
     )
-    # for age_stratum in ages:
-    #     # For age-specific population calculations
-    #     age_output_name = f"{output_name}Xage_{age_stratum}"
-    #     model.request_output_for_compartments(
-    #         age_output_name,
-    #         compartments,
-    #         strata={"age": str(age_stratum)},
-    #         save_results=save_results,
-    #     )
