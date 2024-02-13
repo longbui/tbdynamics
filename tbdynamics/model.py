@@ -47,8 +47,8 @@ def build_model(
         compartments, infectious_compartments, age_strata, fixed_params, matrix
     )
     model.stratify_with(age_strat)
-    request_output(
-        model, age_strata, compartments, latent_compartments, infectious_compartments
+    model.request_output_for_compartments(
+        "total_population", compartments, save_results=True
     )
     return model
 
@@ -229,7 +229,6 @@ def seed_infectious(model: CompartmentalModel):
 def request_output(
     model: CompartmentalModel,
     compartments,
-
 ):
     """
     Get the applicable outputs
