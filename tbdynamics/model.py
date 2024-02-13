@@ -43,10 +43,6 @@ def build_model(
         set_starting_conditions(model, 1)
     add_entry_flow(model)
     add_natural_death_flow(model)
-    # add_infection(model)
-    # add_latency(model)
-    # add_self_recovery(model)
-    # add_infect_death(model)
     age_strat = get_age_strat(
         compartments, infectious_compartments, age_strata, fixed_params, matrix
     )
