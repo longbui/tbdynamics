@@ -4,9 +4,6 @@ import pandas as pd
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
 
-fixed_parameters = {
-}
-
 def get_birth_rate():
     return pd.read_csv(Path(DATA_PATH / "vn_birth.csv"), index_col=0)["value"]
 
