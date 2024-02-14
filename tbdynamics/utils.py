@@ -4,7 +4,6 @@ import numpy as np
 from pathlib import Path
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
-SUPPLEMENT_PATH = BASE_PATH / "supplement"
 DATA_PATH = BASE_PATH / "data"
 
 
