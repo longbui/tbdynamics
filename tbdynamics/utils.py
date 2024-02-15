@@ -50,3 +50,12 @@ def triangle_wave_func(
         time_from_peak < duration * 0.5, peak - time_from_peak * gradient, 0.0
     )
 
+def get_average_sigmoid(low_val, upper_val, inflection):
+    """
+    A sigmoidal function (x -> 1 / (1 + exp(-(x-alpha)))) is used to model a progressive increase with age.
+    This is the approach used in Ragonnet et al. (BMC Medicine, 2019)
+    """
+    return (
+        log(1.0 + exp(upper_val - inflection)) - log(1.0 + exp(low_val - inflection))
+    ) / (upper_val - low_val)
+

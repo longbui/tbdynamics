@@ -2,8 +2,8 @@ from pathlib import Path
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, Function, Time
-from summer2 import AgeStratification, Overwrite
-from tbdynamics.utils import triangle_wave_func
+from summer2 import AgeStratification, Overwrite, Multiply
+from tbdynamics.utils import triangle_wave_func, get_average_sigmoid
 from .inputs import get_birth_rate, process_death_rate
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
@@ -17,7 +17,7 @@ def build_model(
     time_start,
     time_end,
     time_step,
-    matrix,
+    fixed_params,
     add_triangular=True,
 ):
     model = CompartmentalModel(
@@ -33,7 +33,11 @@ def build_model(
         set_starting_conditions(model, 1)
     add_entry_flow(model)
     add_natural_death_flow(model)
-    age_strat = get_age_strat(compartments, age_strata, matrix)
+    add_infection(model)
+    add_latency(model)
+    add_infect_death(model)
+    add_self_recovery(model)
+    age_strat = get_age_strat(compartments, infectious_compartments,age_strata, fixed_params)
     model.stratify_with(age_strat)
     model.request_output_for_compartments(
         "total_population", compartments, save_results=True
@@ -46,7 +50,7 @@ def build_model(
             compartments,
             strata={
                 "age": str(age_stratum)
-            },  # I've added str to age stratum, It worked
+            },
             save_results=True,
         )
     return model
@@ -95,14 +99,102 @@ def add_natural_death_flow(model: CompartmentalModel):
     universal_death_rate = 1.0  # later adjusted by age stratification
     model.add_universal_death_flows(process, death_rate=universal_death_rate)
 
+def add_infection(model: CompartmentalModel):
+    """Add infectious flow to the model
+
+    Args:
+        model (CompartmentalModel): The modeel
+    """
+    process = "infection"
+    origin = "susceptible"
+    destination = "early_latent"
+    model.add_infection_frequency_flow(
+        process, Parameter("contact_rate"), origin, destination
+    )
+
+    process = "infection_from_latent"
+    origin = "late_latent"
+    destination = "early_latent"
+    model.add_infection_frequency_flow(
+        process,
+        Parameter("contact_rate") * Parameter("rr_infection_latent"),
+        "late_latent",
+        "early_latent",
+    )
+
+    process = "infection_from_recovered"
+    origin = "recovered"
+    destination = "early_latent"
+    model.add_infection_frequency_flow(
+        process,
+        Parameter("contact_rate") * Parameter("rr_infection_recovered"),
+        origin,
+        destination,
+    )
+
+def add_latency(model: CompartmentalModel):
+    # add stabilization process
+    process = "stabilisation"
+    origin = "early_latent"
+    destination = "late_latent"
+    model.add_transition_flow(
+        process,
+        1,  # later adjusted by age group
+        origin,
+        destination,
+    )
+
+    # Add the early activattion process
+    process = "early_activation"
+    origin = "early_latent"
+    destination = "infectious"
+    model.add_transition_flow(
+        process,
+        1.0,  # later adjusted by age group
+        origin,
+        destination,
+    )
+
+    process = "late_activation"
+    origin = "late_latent"
+    destination = "infectious"
+    model.add_transition_flow(
+        process,
+        Parameter("progression_multiplier"),  # Set to the adjuster, rather than one
+        origin,
+        destination,
+    )
+
+
+def add_self_recovery(model: CompartmentalModel):
+    process = "self_recovery"
+    origin = "infectious"
+    destination = "recovered"
+    model.add_transition_flow(
+        process,
+        0.2, # unstratified
+        origin,
+        destination,
+    )
+
+
+def add_infect_death(model: CompartmentalModel) -> str:
+    process = "infect_death"
+    origin = "infectious"
+    model.add_death_flow(
+        process,
+        0.2, # unstratified
+        origin,
+    )
+    
+
 def get_age_strat(
     compartments,
+    infectious,
     age_strata,
-    matrix,
+    fixed_params,
 ):
     strat = AgeStratification("age", age_strata, compartments)
-    if matrix is not None:
-        strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
     death_df = process_death_rate(age_strata)
     for age in age_strata:
@@ -110,8 +202,30 @@ def get_age_strat(
             death_df.index, death_df[age]
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
-
     strat.set_flow_adjustments("universal_death", death_adjs)
+    # Set age-specific latency rate
+    for flow_name, latency_params in fixed_params["age_latency"].items():
+        adjs = {
+            str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])])
+            for t in age_strata
+        }
+        strat.set_flow_adjustments(flow_name, adjs)
+
+    inf_switch_age = fixed_params["age_infectiousness_switch"]
+    for comp in infectious:
+        inf_adjs = {}
+        for i, age_low in enumerate(age_strata):
+            if comp != "on_treatment":
+                infectiousness = (
+                    1.0
+                    if age_low == age_strata[-1]
+                    else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
+                )
+            else:
+                infectiousness *= 1
+            inf_adjs[str(age_low)] = Multiply(infectiousness)
+
+        strat.add_infectiousness_adjustments(comp, inf_adjs)
 
     return strat
 

@@ -4,6 +4,7 @@ import pandas as pd
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
 
+
 def get_birth_rate():
     return pd.read_csv(Path(DATA_PATH / "vn_birth.csv"), index_col=0)["value"]
 
@@ -47,3 +48,13 @@ def get_age_groups_in_range(age_groups, lower_limit, upper_limit):
         for i in age_groups
         if "+" not in i and lower_limit <= int(i.split("-")[0]) <= upper_limit
     ]
+
+
+fixed_parameters = {
+    "age_latency": {
+        "early_activation": {0: 2.4107, 5: 0.9862, 15: 0.0986},
+        "late_activation": {0: 6.939769e-09, 5: 0.0023, 15: 0.0012},
+        "stabilisation": {0: 4.383, 5: 4.383, 15: 1.972},
+    },
+    "age_infectiousness_switch": 15.0
+}
