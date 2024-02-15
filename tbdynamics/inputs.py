@@ -56,5 +56,9 @@ fixed_parameters = {
         "late_activation": {0: 6.939769e-09, 5: 0.0023, 15: 0.0012},
         "stabilisation": {0: 4.383, 5: 4.383, 15: 1.972},
     },
-    "age_infectiousness_switch": 15.0
+    "age_infectiousness_switch": 15.0,
+    "smear_negative_infect_multiplier": 0.25,
+    "extrapulmonary_infect_multiplier": 0.0,
+    "incidence_props_pulmonary": 0.85,
+    "incidence_props_smear_positive_among_pulmonary": 0.75,
 }

@@ -197,9 +197,7 @@ def get_organ_strat(
     infect_death_adjs = {
         "smear_positive": Overwrite(Parameter("smear_positive_death_rate")),
         "smear_negative": Overwrite(Parameter("smear_negative_death_rate")),
-        "extrapulmonary": Overwrite(
-            Parameter("smear_negative_death_rate")
-        ),  # Assuming this is intentional
+        "extrapulmonary": Overwrite(Parameter("smear_negative_death_rate")),  
     }
     strat.set_flow_adjustments("infect_death", infect_death_adjs)
 
@@ -209,46 +207,8 @@ def get_organ_strat(
         for organ in ORGAN_STRATA[:-1]  # Excluding 'extrapulmonary' for custom handling
     }
     # Handle 'extrapulmonary' case if its adjustment is different from the others
-    self_recovery_adjs["extrapulmonary"] = Overwrite(
-        Parameter("smear_negative_self_recovery")
-    )
-
+    self_recovery_adjs["extrapulmonary"] = Overwrite(Parameter("smear_negative_self_recovery"))
     strat.set_flow_adjustments("self_recovery", self_recovery_adjs)
-
-    # Define different natural history (self recovery) by organ status
-    self_recovery_adjs = {}
-    self_recovery_adjs["smear_positive"] = Overwrite(
-        Parameter("smear_positive_self_recovery")
-    )
-    self_recovery_adjs["smear_negative"] = Overwrite(
-        Parameter("smear_negative_self_recovery")
-    )
-    self_recovery_adjs["extrapulmonary"] = Overwrite(
-        Parameter("smear_negative_self_recovery")
-    )
-    strat.set_flow_adjustments("self_recovery", self_recovery_adjs)
-
-    # Define different detection rates by organ status.
-    detection_adjs = {}
-    for organ_stratum in ORGAN_STRATA:
-        # adj_vals = sensitivity[organ_stratum]
-        param_name = f"passive_screening_sensitivity_{organ_stratum}"
-        detection_adjs[organ_stratum] = (
-            Function(
-                tanh_based_scaleup,
-                [
-                    Time,
-                    Parameter("acf_scaleup_shape"),
-                    1990,
-                    Parameter("acf_start_asymp"),
-                    0.4,
-                ],
-            )
-            * fixed_params[param_name]
-        )
-
-    detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
-    strat.set_flow_adjustments("detection", detection_adjs)
 
     # Adjust the progression rates by organ using the requested incidence proportions
     splitting_proportions = {
@@ -258,6 +218,7 @@ def get_organ_strat(
         * (1.0 - fixed_params["incidence_props_smear_positive_among_pulmonary"]),
         "extrapulmonary": 1.0 - fixed_params["incidence_props_pulmonary"],
     }
+    print(splitting_proportions)
     for flow_name in ["early_activation", "late_activation"]:
         flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
         strat.set_flow_adjustments(flow_name, flow_adjs)
