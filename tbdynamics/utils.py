@@ -59,3 +59,15 @@ def get_average_sigmoid(low_val, upper_val, inflection):
         log(1.0 + exp(upper_val - inflection)) - log(1.0 + exp(low_val - inflection))
     ) / (upper_val - low_val)
 
+def tanh_based_scaleup(t, shape, inflection_time, start_asymptote, end_asymptote=1.0):
+    """
+    return the function t: (1 - sigma) / 2 * tanh(b * (a - c)) + (1 + sigma) / 2
+    :param shape: shape parameter
+    :param inflection_time: inflection point
+    :param start_asymptote: lowest asymptotic value
+    :param end_asymptote: highest asymptotic value
+    :return: a function
+    """
+    rng = end_asymptote - start_asymptote
+    return (jnp.tanh(shape * (t - inflection_time)) / 2.0 + 0.5) * rng + start_asymptote
+
