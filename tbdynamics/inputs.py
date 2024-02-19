@@ -7,13 +7,12 @@ DATA_PATH = BASE_PATH / "data"
 def get_birth_rate():
     return pd.read_csv(Path(DATA_PATH / "vn_birth.csv"), index_col=0)["value"]
 
+def get_death_rate():
+    return pd.read_csv(Path(DATA_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"])
 
-def process_death_rate(age_strata: list):
-    data = pd.read_csv(
-        Path(DATA_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"]
-    )
+
+def process_death_rate(data, age_strata, year_indices):
     data = data.set_index(["Age", "Time"])
-    birth_rates = get_birth_rate()
     data.index = data.index.swaplevel()
     age_groups = set(data.index.get_level_values(1))
     years = set(data.index.get_level_values(0))
@@ -37,7 +36,7 @@ def process_death_rate(age_strata: list):
             total = age_year_data.sum()
             mapped_rates.loc[year, agegroup] = total["Deaths"] / total["Population"]
     mapped_rates.index = mapped_rates.index + 0.5
-    death_df = mapped_rates.loc[birth_rates.index]
+    death_df = mapped_rates.loc[year_indices]
     return death_df
 
 

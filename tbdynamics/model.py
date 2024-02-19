@@ -4,7 +4,7 @@ from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, Function, Time
 from summer2 import AgeStratification, Overwrite
 from tbdynamics.utils import triangle_wave_func
-from .inputs import get_birth_rate, process_death_rate
+from .inputs import get_birth_rate, get_death_rate ,process_death_rate
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 SUPPLEMENT_PATH = BASE_PATH / "supplement"
@@ -31,9 +31,13 @@ def build_model(
         seed_infectious(model)
     else:
         set_starting_conditions(model, 1)
-    add_entry_flow(model)
+    
+    birth_rates = get_birth_rate()
+    death_rates = get_death_rate()
+    death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
+    add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
-    age_strat = get_age_strat(compartments, age_strata, matrix)
+    age_strat = get_age_strat(compartments, age_strata, death_df, matrix)
     model.stratify_with(age_strat)
     model.request_output_for_compartments(
         "total_population", compartments, save_results=True
@@ -67,14 +71,13 @@ def set_starting_conditions(model: CompartmentalModel, num_infectious):
     model.set_initial_population(init_pop)
 
 
-def add_entry_flow(model: CompartmentalModel):
+def add_entry_flow(model: CompartmentalModel, birth_rates):
     """Add birth flow to the model
 
     Args:
         model (CompartmentalModel): the model
     """
     process = "birth"
-    birth_rates = get_birth_rate()
     destination = "susceptible"
     crude_birth_rate = get_sigmoidal_interpolation_function(
         birth_rates.index, birth_rates
@@ -98,13 +101,13 @@ def add_natural_death_flow(model: CompartmentalModel):
 def get_age_strat(
     compartments,
     age_strata,
+    death_df,
     matrix,
 ):
     strat = AgeStratification("age", age_strata, compartments)
     if matrix is not None:
         strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
-    death_df = process_death_rate(age_strata)
     for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(
             death_df.index, death_df[age]
