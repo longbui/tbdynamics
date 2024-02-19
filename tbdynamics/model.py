@@ -4,7 +4,7 @@ from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, Function, Time, DerivedOutput
 from summer2 import AgeStratification, Stratification, Overwrite, Multiply
 from .utils import triangle_wave_func, get_average_sigmoid, tanh_based_scaleup
-from .inputs import get_birth_rate, process_death_rate
+from .inputs import get_birth_rate, get_death_rate ,process_death_rate
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 SUPPLEMENT_PATH = BASE_PATH / "supplement"
@@ -29,16 +29,21 @@ def build_model(
         infectious_compartments=infectious_compartments,
         timestep=time_step,
     )
+    birth_rates = get_birth_rate()
+    death_rates = get_death_rate()
+    death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
     initialize_model_conditions(model,add_triangular)
-    add_entry_flow(model)
+    add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
     add_infection_flow(model)
     add_latency_flow(model)
     add_infect_death_flow(model)
     add_self_recovery_flow(model)
     stratify_model_by_age(
-        model, compartments, infectious_compartments, age_strata, fixed_params, matrix
+        model, compartments, infectious_compartments, age_strata, death_df ,fixed_params, matrix
     )
+    organ_strat = get_organ_strat(infectious_compartments, fixed_params)
+    model.stratify_with(organ_strat)
     request_model_outputs(
         model, compartments, latent_compartments, infectious_compartments, age_strata
     )
@@ -59,9 +64,8 @@ def initialize_model_conditions(model, add_triangular):
             "susceptible": start_pop - 1,
         })
 
-def add_entry_flow(model):
+def add_entry_flow(model, birth_rates):
     process = "birth"
-    birth_rates = get_birth_rate()
     crude_birth_rate = get_sigmoidal_interpolation_function(
         birth_rates.index, birth_rates.values
     )
@@ -127,19 +131,18 @@ def add_infect_death_flow(model):
 
 
 def stratify_model_by_age(
-    model, compartments, infectious_compartments, age_strata, fixed_params, matrix
+    model, compartments, infectious_compartments, age_strata, death_df ,fixed_params, matrix
 ):
     age_strat = get_age_strat(
-        compartments, infectious_compartments, age_strata, fixed_params, matrix
+        compartments, infectious_compartments, age_strata, death_df,fixed_params, matrix
     )
     model.stratify_with(age_strat)
 
 
-def get_age_strat(compartments, infectious, age_strata, fixed_params, matrix):
+def get_age_strat(compartments, infectious, age_strata,death_df,fixed_params, matrix):
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
-    death_df = process_death_rate(age_strata)
     for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(
             death_df.index, death_df[age]
@@ -174,8 +177,8 @@ def get_age_strat(compartments, infectious, age_strata, fixed_params, matrix):
 
 
 def get_organ_strat(
-    fixed_params: dict,
     infectious_compartments: list,
+    fixed_params: dict,
 ):
     ORGAN_STRATA = [
         "smear_positive",
