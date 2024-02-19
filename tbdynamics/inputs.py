@@ -11,6 +11,9 @@ def get_birth_rate():
 def get_death_rate():
     return pd.read_csv(Path(DATA_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"])
 
+def get_data():
+    return pd.read_csv(Path(DATA_PATH / "cleaned.csv"), index_col=0)
+
 
 def process_death_rate(data, age_strata, year_indices):
     data = data.set_index(["Age", "Time"])

@@ -3,11 +3,10 @@ from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
 from summer2.parameters import Parameter, Function, Time, DerivedOutput
 from summer2 import AgeStratification, Stratification, Overwrite, Multiply
-from .utils import triangle_wave_func, get_average_sigmoid, tanh_based_scaleup
-from .inputs import get_birth_rate, get_death_rate ,process_death_rate
+from .utils import triangle_wave_func, get_average_sigmoid
+from .inputs import get_birth_rate, get_death_rate, process_death_rate
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
-SUPPLEMENT_PATH = BASE_PATH / "supplement"
 DATA_PATH = BASE_PATH / "data"
 
 
@@ -40,10 +39,8 @@ def build_model(
     add_infect_death_flow(model)
     add_self_recovery_flow(model)
     stratify_model_by_age(
-        model, compartments, infectious_compartments, age_strata, death_df ,fixed_params, matrix
+        model, compartments, infectious_compartments, age_strata, death_df, fixed_params, matrix
     )
-    organ_strat = get_organ_strat(infectious_compartments, fixed_params)
-    model.stratify_with(organ_strat)
     request_model_outputs(
         model, compartments, latent_compartments, infectious_compartments, age_strata
     )
