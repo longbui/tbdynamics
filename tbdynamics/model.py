@@ -111,17 +111,17 @@ def add_infection_flow(model):
 
 def add_latency_flow(model):
     latency_flows = [
-        ("stabilisation", "early_latent", "late_latent", 1.0),
-        ("early_activation", "early_latent", "infectious", 1.0),
+        ("stabilisation", 1.0 ,"early_latent", "late_latent"),
+        ("early_activation", 1.0 ,"early_latent", "infectious"),
         (
             "late_activation",
-            "late_latent",
-            "infectious",
             Parameter("progression_multiplier"),
-        ),
+            "late_latent",
+            "infectious"
+        )
     ]
-    for process, origin, destination, rate in latency_flows:
-        model.add_transition_flow(process, rate, origin, destination)
+    for latency_flow in latency_flows:
+        model.add_transition_flow(*latency_flow)
 
 
 def add_self_recovery_flow(model):
