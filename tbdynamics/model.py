@@ -47,6 +47,9 @@ def build_model(
         fixed_params,
         matrix,
     )
+
+    stratify_model_by_organ(model, infectious_compartments, fixed_params)
+
     request_model_outputs(
         model, compartments, latent_compartments, infectious_compartments, age_strata
     )
@@ -101,18 +104,15 @@ def add_infection_flow(model):
     ]
     for origin, modifier in infection_flows:
         process = f"infection_from_{origin}"
-        flow_rate = (
-            Parameter("contact_rate") * Parameter(modifier)
-            if modifier
-            else Parameter("contact_rate")
-        )
+        modifier = Parameter(modifier) if modifier else 1.0
+        flow_rate = Parameter("contact_rate") * modifier
         model.add_infection_frequency_flow(process, flow_rate, origin, "early_latent")
 
 
 def add_latency_flow(model):
     latency_flows = [
-        ("stabilisation", "early_latent", "late_latent", 1),
-        ("early_activation", "early_latent", "infectious", 1),
+        ("stabilisation", "early_latent", "late_latent", 1.0),
+        ("early_activation", "early_latent", "infectious", 1.0),
         (
             "late_activation",
             "late_latent",
@@ -187,13 +187,82 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
     return strat
 
+
+def stratify_model_by_organ(model, infectious_compartments, fixed_params):
+    organ_strat = get_organ_strat(
+        infectious_compartments,
+        fixed_params,
+    )
+    model.stratify_with(organ_strat)
+
+
+def get_organ_strat(
+    infectious_compartments: list,
+    fixed_params: dict,
+):
+    ORGAN_STRATA = [
+        "smear_positive",
+        "smear_negative",
+        "extrapulmonary",
+    ]
+    strat = Stratification("organ", ORGAN_STRATA, infectious_compartments)
+
+    # Define infectiousness adjustment by organ status
+    inf_adj = {
+        stratum: Multiply(fixed_params.get(f"{stratum}_infect_multiplier", 1))
+        for stratum in ORGAN_STRATA
+    }
+    for comp in infectious_compartments:
+        strat.add_infectiousness_adjustments(comp, inf_adj)
+
+    # Define different natural history (infection death) by organ status
+    infect_death_adjs = {
+        stratum: Overwrite(
+            Parameter(
+                f"{stratum if stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
+            )
+        )
+        for stratum in ORGAN_STRATA
+    }
+    strat.set_flow_adjustments("infect_death", infect_death_adjs)
+
+    # Define different natural history (self recovery) by organ status
+    self_recovery_adjustments = {
+        stratum: Overwrite(
+            Parameter(
+                f"{'smear_negative' if stratum == 'extrapulmonary' else stratum}_self_recovery"
+            )
+        )
+        for stratum in ORGAN_STRATA
+    }
+    strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
+
+    # Adjust the progression rates by organ using the requested incidence proportions
+    splitting_proportions = {
+        "smear_positive": fixed_params["incidence_props_pulmonary"]
+        * fixed_params["incidence_props_smear_positive_among_pulmonary"],
+        "smear_negative": fixed_params["incidence_props_pulmonary"]
+        * (1.0 - fixed_params["incidence_props_smear_positive_among_pulmonary"]),
+        "extrapulmonary": 1.0 - fixed_params["incidence_props_pulmonary"],
+    }
+    for flow_name in ["early_activation", "late_activation"]:
+        flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
+        strat.set_flow_adjustments(flow_name, flow_adjs)
+    return strat
+
+
 def seed_infectious(model: CompartmentalModel):
     """Seed infectious.
     Args:
         model: The summer epidemiological model
         latent_compartments: The names of the latent compartments
     """
-    seed_args = [Time, Parameter("seed_time"), Parameter("seed_duration"), 1]
+    seed_args = [
+        Time,
+        Parameter("seed_time"),
+        Parameter("seed_duration"),
+        Parameter("seed_num"),
+    ]
     voc_seed_func = Function(triangle_wave_func, seed_args)
     model.add_importation_flow(
         "seed_infectious",
