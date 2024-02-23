@@ -115,7 +115,7 @@ def add_latency_flow(model):
         ("early_activation", 1.0 ,"early_latent", "infectious"),
         (
             "late_activation",
-            Parameter("progression_multiplier"),
+            1.0,
             "late_latent",
             "infectious"
         )
@@ -165,23 +165,21 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     # Set age-specific latency rate
     for flow_name, latency_params in fixed_params["age_latency"].items():
         adjs = {
-            str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])])
+            str(t): latency_params[max([k for k in latency_params if k <= t])] * (Parameter('progression_multiplier') if flow_name == "late_activation" else 1)
             for t in age_strata
         }
+        adjs = {str(k): Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)
 
     inf_switch_age = fixed_params["age_infectiousness_switch"]
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
-            if comp != "on_treatment":
-                infectiousness = (
+            infectiousness = (
                     1.0
                     if age_low == age_strata[-1]
                     else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
                 )
-            else:
-                infectiousness *= 1
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
