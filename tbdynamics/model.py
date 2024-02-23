@@ -111,17 +111,17 @@ def add_infection_flow(model):
 
 def add_latency_flow(model):
     latency_flows = [
-        ("stabilisation", 1.0 ,"early_latent", "late_latent"),
-        ("early_activation", 1.0 ,"early_latent", "infectious"),
+        ("stabilisation", "early_latent", "late_latent", 1.0),
+        ("early_activation", "early_latent", "infectious", 1.0),
         (
             "late_activation",
-            Parameter("progression_multiplier"),
             "late_latent",
-            "infectious"
-        )
+            "infectious",
+            Parameter("progression_multiplier"),
+        ),
     ]
-    for latency_flow in latency_flows:
-        model.add_transition_flow(*latency_flow)
+    for process, origin, destination, rate in latency_flows:
+        model.add_transition_flow(process, rate, origin, destination)
 
 
 def add_self_recovery_flow(model):
@@ -174,14 +174,11 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
-            if comp != "on_treatment":
-                infectiousness = (
+            infectiousness = (
                     1.0
                     if age_low == age_strata[-1]
                     else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
                 )
-            else:
-                infectiousness *= 1
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
@@ -275,22 +272,22 @@ def seed_infectious(model: CompartmentalModel):
 def request_model_outputs(
     model, compartments, latent_compartments, infectious_compartments, age_strata
 ):
-    model.request_output_for_compartments("total_population", compartments)
-    model.request_output_for_compartments("latent_population_size", latent_compartments)
+    pop = model.request_output_for_compartments("total_population", compartments)
+    latent =model.request_output_for_compartments("latent_population_size", latent_compartments)
     model.request_function_output(
         "percentage_latent",
         100.0
-        * DerivedOutput("latent_population_size")
-        / DerivedOutput("total_population"),
+        * latent
+        / pop,
     )
-    model.request_output_for_compartments(
+    infectious = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
     model.request_function_output(
         "prevalence_infectious",
         1e5
-        * DerivedOutput("infectious_population_size")
-        / DerivedOutput("total_population"),
+        * infectious
+        / pop
     )
     for age_stratum in age_strata:
         model.request_output_for_compartments(
