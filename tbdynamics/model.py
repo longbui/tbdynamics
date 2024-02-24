@@ -273,22 +273,22 @@ def seed_infectious(model: CompartmentalModel):
 def request_model_outputs(
     model, compartments, latent_compartments, infectious_compartments, age_strata
 ):
-    model.request_output_for_compartments("total_population", compartments)
-    model.request_output_for_compartments("latent_population_size", latent_compartments)
+    pop = model.request_output_for_compartments("total_population", compartments)
+    latent = model.request_output_for_compartments("latent_population_size", latent_compartments)
     model.request_function_output(
         "percentage_latent",
         100.0
-        * DerivedOutput("latent_population_size")
-        / DerivedOutput("total_population"),
+        * latent
+        / pop,
     )
-    model.request_output_for_compartments(
+    infectious = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
     model.request_function_output(
         "prevalence_infectious",
         1e5
-        * DerivedOutput("infectious_population_size")
-        / DerivedOutput("total_population"),
+        * infectious
+        / pop,
     )
     for age_stratum in age_strata:
         model.request_output_for_compartments(
