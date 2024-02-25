@@ -115,10 +115,10 @@ def add_latency_flow(model):
         ("early_activation", "early_latent", "infectious", 1.0),
         (
             "late_activation",
-            "late_latent",
-            "infectious",
             Parameter("progression_multiplier"),
-        ),
+            "late_latent",
+            "infectious"
+        )
     ]
     for process, origin, destination, rate in latency_flows:
         model.add_transition_flow(process, rate, origin, destination)
@@ -165,9 +165,10 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     # Set age-specific latency rate
     for flow_name, latency_params in fixed_params["age_latency"].items():
         adjs = {
-            str(t): Multiply(latency_params[max([k for k in latency_params if k <= t])])
+            str(t): latency_params[max([k for k in latency_params if k <= t])] * (Parameter('progression_multiplier') if flow_name == "late_activation" else 1)
             for t in age_strata
         }
+        adjs = {str(k): Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)
 
     inf_switch_age = fixed_params["age_infectiousness_switch"]
@@ -272,8 +273,8 @@ def seed_infectious(model: CompartmentalModel):
 def request_model_outputs(
     model, compartments, latent_compartments, infectious_compartments, age_strata
 ):
-    pop = model.request_output_for_compartments("total_population", compartments)
-    latent =model.request_output_for_compartments("latent_population_size", latent_compartments)
+    model.request_output_for_compartments("total_population", compartments)
+    model.request_output_for_compartments("latent_population_size", latent_compartments)
     model.request_function_output(
         "percentage_latent",
         100.0
@@ -286,8 +287,8 @@ def request_model_outputs(
     model.request_function_output(
         "prevalence_infectious",
         1e5
-        * infectious
-        / pop
+        * DerivedOutput("infectious_population_size")
+        / DerivedOutput("total_population"),
     )
     for age_stratum in age_strata:
         model.request_output_for_compartments(
