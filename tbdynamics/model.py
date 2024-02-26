@@ -31,12 +31,7 @@ def build_model(
     death_rates = get_death_rate()
     death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
     start_pop = Parameter("start_population_size")
-    model.set_initial_population(
-            {
-                "infectious": 0,
-                "susceptible": start_pop - 0,
-            }
-        )
+    model.set_initial_population({"susceptible": start_pop})
     seed_infectious(model)
     add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
