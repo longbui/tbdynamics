@@ -20,7 +20,6 @@ def build_model(
     time_step,
     fixed_params,
     matrix,
-    add_triangular=True,
 ):
     model = CompartmentalModel(
         times=(time_start, time_end),
@@ -31,7 +30,14 @@ def build_model(
     birth_rates = get_birth_rate()
     death_rates = get_death_rate()
     death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
-    initialize_model_conditions(model, add_triangular)
+    start_pop = Parameter("start_population_size")
+    model.set_initial_population(
+            {
+                "infectious": 0,
+                "susceptible": start_pop - 0,
+            }
+        )
+    seed_infectious(model)
     add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
     add_infection_flow(model)
@@ -54,27 +60,6 @@ def build_model(
         model, compartments, latent_compartments, infectious_compartments, age_strata
     )
     return model
-
-
-def initialize_model_conditions(model, add_triangular):
-    # Set the initial population with either 0 or 1 infectious individual(s)
-    start_pop = Parameter("start_population_size")
-    if add_triangular:
-        model.set_initial_population(
-            {
-                "infectious": 0,
-                "susceptible": start_pop - 0,
-            }
-        )
-        seed_infectious(model)
-    else:
-        model.set_initial_population(
-            {
-                "infectious": 1,
-                "susceptible": start_pop - 1,
-            }
-        )
-
 
 def add_entry_flow(model, birth_rates):
     process = "birth"
