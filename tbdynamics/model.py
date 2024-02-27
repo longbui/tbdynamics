@@ -276,3 +276,10 @@ def request_model_outputs(
             compartments,
             strata={"age": str(age_stratum)},
         )
+
+    for age_stratum in age_strata:
+        model.request_output_for_compartments(
+            f"latent_population_sizeXage_{age_stratum}",
+            latent_compartments,
+            strata={"age": str(age_stratum)},
+        )
