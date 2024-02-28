@@ -56,6 +56,7 @@ def build_model(
     )
     return model
 
+
 def add_entry_flow(model, birth_rates):
     process = "birth"
     crude_birth_rate = get_sigmoidal_interpolation_function(
@@ -91,14 +92,9 @@ def add_infection_flow(model):
 
 def add_latency_flow(model):
     latency_flows = [
-        ("stabilisation", 1.0 ,"early_latent", "late_latent"),
-        ("early_activation", 1.0 ,"early_latent", "infectious"),
-        (
-            "late_activation",
-            1.0,
-            "late_latent",
-            "infectious"
-        )
+        ("stabilisation", 1.0, "early_latent", "late_latent"),
+        ("early_activation", 1.0, "early_latent", "infectious"),
+        ("late_activation", 1.0, "late_latent", "infectious"),
     ]
     for latency_flow in latency_flows:
         model.add_transition_flow(*latency_flow)
@@ -145,7 +141,12 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     # Set age-specific latency rate
     for flow_name, latency_params in fixed_params["age_latency"].items():
         adjs = {
-            str(t): latency_params[max([k for k in latency_params if k <= t])] * (Parameter('progression_multiplier') if flow_name == "late_activation" else 1)
+            str(t): latency_params[max([k for k in latency_params if k <= t])]
+            * (
+                Parameter("progression_multiplier")
+                if flow_name == "late_activation"
+                else 1
+            )
             for t in age_strata
         }
         adjs = {str(k): Overwrite(v) for k, v in adjs.items()}
@@ -156,10 +157,10 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
             infectiousness = (
-                    1.0
-                    if age_low == age_strata[-1]
-                    else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
-                )
+                1.0
+                if age_low == age_strata[-1]
+                else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
+            )
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
@@ -253,33 +254,38 @@ def seed_infectious(model: CompartmentalModel):
 def request_model_outputs(
     model, compartments, latent_compartments, infectious_compartments, age_strata
 ):
-    pop = model.request_output_for_compartments("total_population", compartments)
-    latent = model.request_output_for_compartments("latent_population_size", latent_compartments)
-    model.request_function_output(
-        "percentage_latent",
-        100.0
-        * latent
-        / pop,
+    # Request total population size
+    total_pop = model.request_output_for_compartments("total_population", compartments)
+
+    # Calculate and request percentage of latent population
+    latent_pop_size = model.request_output_for_compartments(
+        "latent_population_size", latent_compartments
     )
-    infectious = model.request_output_for_compartments(
+    model.request_function_output(
+        "percentage_latent", 100.0 * latent_pop_size / total_pop
+    )
+
+    # Calculate and request prevalence of infectious population
+    infectious_pop_size = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
     model.request_function_output(
-        "prevalence_infectious",
-        1e5
-        * infectious
-        / pop,
+        "prevalence_infectious", 1e5 * infectious_pop_size / total_pop
     )
+
+    # Request proportion of each compartment in the total population
+    for compartment in compartments:
+        compartment_size = model.request_output_for_compartments(
+            f"number_{compartment}", compartment
+        )
+        model.request_function_output(
+            f"prop_{compartment}", compartment_size / total_pop
+        )
+
+    # Request total population by age stratum
     for age_stratum in age_strata:
         model.request_output_for_compartments(
             f"total_populationXage_{age_stratum}",
             compartments,
-            strata={"age": str(age_stratum)},
-        )
-
-    for age_stratum in age_strata:
-        model.request_output_for_compartments(
-            f"latent_population_sizeXage_{age_stratum}",
-            latent_compartments,
             strata={"age": str(age_stratum)},
         )
