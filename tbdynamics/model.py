@@ -27,6 +27,11 @@ def build_model(
         infectious_compartments=infectious_compartments,
         timestep=time_step,
     )
+    organ_strata = [
+        "smear_positive",
+        "smear_negative",
+        "extrapulmonary",
+    ]
     birth_rates = get_birth_rate()
     death_rates = get_death_rate()
     death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
@@ -49,10 +54,10 @@ def build_model(
         matrix,
     )
 
-    stratify_model_by_organ(model, infectious_compartments, fixed_params)
+    stratify_model_by_organ(model, infectious_compartments, organ_strata,fixed_params)
 
     request_model_outputs(
-        model, compartments, latent_compartments, infectious_compartments, age_strata
+        model, compartments, latent_compartments, infectious_compartments, age_strata, organ_strata
     )
     return model
 
@@ -167,9 +172,10 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     return strat
 
 
-def stratify_model_by_organ(model, infectious_compartments, fixed_params):
+def stratify_model_by_organ(model, infectious_compartments, organ_strata,fixed_params):
     organ_strat = get_organ_strat(
         infectious_compartments,
+        organ_strata,
         fixed_params,
     )
     model.stratify_with(organ_strat)
@@ -177,19 +183,15 @@ def stratify_model_by_organ(model, infectious_compartments, fixed_params):
 
 def get_organ_strat(
     infectious_compartments: list,
+    organ_strata,
     fixed_params: dict,
 ):
-    ORGAN_STRATA = [
-        "smear_positive",
-        "smear_negative",
-        "extrapulmonary",
-    ]
-    strat = Stratification("organ", ORGAN_STRATA, infectious_compartments)
+    strat = Stratification("organ", organ_strata, infectious_compartments)
 
     # Define infectiousness adjustment by organ status
     inf_adj = {
         stratum: Multiply(fixed_params.get(f"{stratum}_infect_multiplier", 1))
-        for stratum in ORGAN_STRATA
+        for stratum in organ_strata
     }
     for comp in infectious_compartments:
         strat.add_infectiousness_adjustments(comp, inf_adj)
@@ -201,7 +203,7 @@ def get_organ_strat(
                 f"{stratum if stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
             )
         )
-        for stratum in ORGAN_STRATA
+        for stratum in organ_strata
     }
     strat.set_flow_adjustments("infect_death", infect_death_adjs)
 
@@ -212,7 +214,7 @@ def get_organ_strat(
                 f"{'smear_negative' if stratum == 'extrapulmonary' else stratum}_self_recovery"
             )
         )
-        for stratum in ORGAN_STRATA
+        for stratum in organ_strata
     }
     strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
 
@@ -252,7 +254,7 @@ def seed_infectious(model: CompartmentalModel):
 
 
 def request_model_outputs(
-    model, compartments, latent_compartments, infectious_compartments, age_strata
+    model, compartments, latent_compartments, infectious_compartments, age_strata, organ_strata
 ):
     # Request total population size
     total_pop = model.request_output_for_compartments("total_population", compartments)
@@ -289,3 +291,15 @@ def request_model_outputs(
             compartments,
             strata={"age": str(age_stratum)},
         )
+    for organ_stratum in organ_strata:
+        organ_size = model.request_output_for_compartments(
+            f"total_populationXorgan_{organ_stratum}",
+            compartments,
+            strata={"organ": str(organ_stratum)},
+        )
+        model.request_function_output(
+            f"prop_{organ_stratum}", organ_size / infectious_pop_size
+        )
+
+
+    
