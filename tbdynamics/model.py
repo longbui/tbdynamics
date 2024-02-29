@@ -1,11 +1,18 @@
 from pathlib import Path
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2 import CompartmentalModel
-from summer2.parameters import Parameter, Function, Time, DerivedOutput
+from summer2.parameters import Parameter, Function, Time
 from summer2 import AgeStratification, Stratification, Overwrite, Multiply
-from .utils import triangle_wave_func, get_average_sigmoid
+from .utils import (
+    triangle_wave_func,
+    get_average_sigmoid,
+    bcg_multiplier_func,
+    get_average_age_for_bcg,
+    get_treatment_outcomes,
+    tanh_based_scaleup
+)
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
-from .constants import organ_strata
+from .constants import organ_strata, bcg_multiplier_dict
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
@@ -41,6 +48,8 @@ def build_model(
     add_latency_flow(model)
     add_infect_death_flow(model)
     add_self_recovery_flow(model)
+    add_detection(model, fixed_params)
+    add_treatment_related_outcomes(model)
     stratify_model_by_age(
         model,
         compartments,
@@ -115,6 +124,42 @@ def add_infect_death_flow(model):
     model.add_death_flow("infect_death", 0.2, "infectious")
 
 
+def add_detection(model, fixed_params):
+    detection_rate = get_sigmoidal_interpolation_function(
+        list(fixed_params["detection_rate"].keys()),
+        list(fixed_params["detection_rate"].values()),
+    )
+
+    # Adding a transition flow named 'detection' to the model
+    model.add_transition_flow("detection", detection_rate, "infectious", "on_treatment")
+
+
+def add_treatment_related_outcomes(model):
+    """
+    Adds treatment-related outcome flows to the compartmental model. This includes flows for treatment recovery,
+    treatment-related death, and relapse. Initial rates are set as placeholders, with the expectation that
+    they may be adjusted later based on specific factors such as organ involved or patient age.
+    """
+
+    treatment__outcomes_flows = [
+        ("treatment_recovery", 1.0, "recovered"),
+        ("relapse", 1.0, "infectious"),
+    ]
+
+    # Add each transition flow defined in treatment_flows
+    for flow_name, rate, to_compartment in treatment__outcomes_flows:
+        model.add_transition_flow(
+            flow_name,
+            rate,  # Directly using the rate for now
+            "on_treatment",
+            to_compartment,
+        )
+
+    # Define and add treatment death flow separately since it uses a different method
+    treatment_death_flow = ["treatment_death", 1.0, "on_treatment"]
+    model.add_death_flow(*treatment_death_flow)
+
+
 def stratify_model_by_age(
     model,
     compartments,
@@ -171,15 +216,50 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
             inf_adjs[str(age_low)] = Multiply(infectiousness)
 
         strat.add_infectiousness_adjustments(comp, inf_adjs)
+
+    # Add BCG effect without stratifying for BCG
+    bcg_adjs = {}  # Initialize dictionary to hold BCG adjustments
+    for age, multiplier in bcg_multiplier_dict.items():
+        bcg_adjs[age] = calculate_bcg_adjustment(
+            age,
+            multiplier,
+            age_strata,
+            list(fixed_params["time_variant_bcg_perc"].keys()),
+            list(fixed_params["time_variant_bcg_perc"].values()),
+        )
+    strat.set_flow_adjustments("infection_from_susceptible", bcg_adjs)
+
+     # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
+    # Initialize dictionaries to hold treatment outcome functions by age strata
+    time_variant_tsr = get_sigmoidal_interpolation_function(
+        list(fixed_params["time_variant_tsr"].keys()),
+        list(fixed_params["time_variant_tsr"].values()),
+    )
+    treatment_recovery_funcs = {}
+    treatment_death_funcs = {}
+    treatment_relapse_funcs = {}
+    for age in age_strata:
+        death_rate = universal_death_funcs[age]
+        treatment_outcomes = Function(
+            get_treatment_outcomes,
+                [
+                    fixed_params["treatment_duration"],
+                    fixed_params["prop_death_among_negative_tx_outcome"],
+                    death_rate,
+                    time_variant_tsr,
+                ],
+            )
+        treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
+        treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
+        treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
+    strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
+    strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
+    strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
     return strat
 
 
 def stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params):
-    organ_strat = get_organ_strat(
-        infectious_compartments,
-        organ_strata,
-        fixed_params,
-    )
+    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params)
     model.stratify_with(organ_strat)
 
 
@@ -220,6 +300,7 @@ def get_organ_strat(
     }
     strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
 
+
     # Adjust the progression rates by organ using the requested incidence proportions
     splitting_proportions = {
         "smear_positive": fixed_params["incidence_props_pulmonary"]
@@ -255,6 +336,23 @@ def seed_infectious(model: CompartmentalModel):
     )
 
 
+def calculate_bcg_adjustment(
+    age, multiplier, age_strata, bcg_time_keys, bcg_time_values
+):
+    if multiplier < 1.0:
+        # Calculate age-adjusted multiplier using a sigmoidal interpolation function
+        age_adjusted_time = Time - get_average_age_for_bcg(age, age_strata)
+        interpolation_func = get_sigmoidal_interpolation_function(
+            bcg_time_keys,
+            bcg_time_values,
+            age_adjusted_time,
+        )
+        return Multiply(Function(bcg_multiplier_func, [interpolation_func, multiplier]))
+    else:
+        # No adjustment needed for multipliers of 1.0
+        return None
+
+
 def request_model_outputs(
     model,
     compartments,
@@ -281,6 +379,8 @@ def request_model_outputs(
     model.request_function_output(
         "prevalence_infectious", 1e5 * infectious_pop_size / total_pop
     )
+
+    model.request_output_for_flow("notification", "detection", save_results=True)
 
     # Request proportion of each compartment in the total population
     for compartment in compartments:
