@@ -5,6 +5,7 @@ from summer2.parameters import Parameter, Function, Time, DerivedOutput
 from summer2 import AgeStratification, Stratification, Overwrite, Multiply
 from .utils import triangle_wave_func, get_average_sigmoid
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
+from .constants import organ_strata
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
@@ -27,11 +28,7 @@ def build_model(
         infectious_compartments=infectious_compartments,
         timestep=time_step,
     )
-    organ_strata = [
-        "smear_positive",
-        "smear_negative",
-        "extrapulmonary",
-    ]
+
     birth_rates = get_birth_rate()
     death_rates = get_death_rate()
     death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
@@ -54,10 +51,15 @@ def build_model(
         matrix,
     )
 
-    stratify_model_by_organ(model, infectious_compartments, organ_strata,fixed_params)
+    stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params)
 
     request_model_outputs(
-        model, compartments, latent_compartments, infectious_compartments, age_strata, organ_strata
+        model,
+        compartments,
+        latent_compartments,
+        infectious_compartments,
+        age_strata,
+        organ_strata,
     )
     return model
 
@@ -172,7 +174,7 @@ def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, 
     return strat
 
 
-def stratify_model_by_organ(model, infectious_compartments, organ_strata,fixed_params):
+def stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params):
     organ_strat = get_organ_strat(
         infectious_compartments,
         organ_strata,
@@ -254,7 +256,12 @@ def seed_infectious(model: CompartmentalModel):
 
 
 def request_model_outputs(
-    model, compartments, latent_compartments, infectious_compartments, age_strata, organ_strata
+    model,
+    compartments,
+    latent_compartments,
+    infectious_compartments,
+    age_strata,
+    organ_strata,
 ):
     # Request total population size
     total_pop = model.request_output_for_compartments("total_population", compartments)
@@ -300,6 +307,3 @@ def request_model_outputs(
         model.request_function_output(
             f"prop_{organ_stratum}", organ_size / infectious_pop_size
         )
-
-
-    
