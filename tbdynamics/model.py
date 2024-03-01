@@ -1,34 +1,49 @@
 from pathlib import Path
-from summer2.functions.time import get_sigmoidal_interpolation_function
+from typing import List, Dict
 from summer2 import CompartmentalModel
+from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Parameter, Function, Time
-from summer2 import AgeStratification, Stratification, Overwrite, Multiply
-from .utils import (
-    triangle_wave_func,
-    get_average_sigmoid,
-    bcg_multiplier_func,
-    get_average_age_for_bcg,
-    get_treatment_outcomes,
-    tanh_based_scaleup
-)
+
+from .utils import triangle_wave_func
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
-from .constants import organ_strata, bcg_multiplier_dict
+from .constants import organ_strata
+from .outputs import request_model_outputs
+from .strats import get_age_strat, get_organ_strat
+
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
 
 
 def build_model(
-    compartments,
-    latent_compartments,
-    infectious_compartments,
-    age_strata,
-    time_start,
-    time_end,
-    time_step,
-    fixed_params,
+    compartments: List[str],
+    latent_compartments: List[str],
+    infectious_compartments: List[str],
+    age_strata: List[int],
+    time_start: float,
+    time_end: float,
+    time_step: float,
+    fixed_params: Dict[str, any],
     matrix,
-):
+) -> CompartmentalModel:
+    """
+    Builds and returns a compartmental model for epidemiological studies, incorporating
+    various flows and stratifications based on age, organ status, and treatment outcomes.
+
+    Args:
+        compartments: List of compartment names in the model.
+        latent_compartments: List of latent compartment names.
+        infectious_compartments: List of infectious compartment names.
+        age_strata: List of age groups for stratification.
+        time_start: Start time for the model simulation.
+        time_end: End time for the model simulation.
+        time_step: Time step for the model simulation.
+        fixed_params: Dictionary of parameters with fixed values.
+        matrix: Mixing matrix for age stratification.
+
+    Returns:
+        A configured CompartmentalModel object.
+    """
     model = CompartmentalModel(
         times=(time_start, time_end),
         compartments=compartments,
@@ -59,9 +74,7 @@ def build_model(
         fixed_params,
         matrix,
     )
-
     stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params)
-
     request_model_outputs(
         model,
         compartments,
@@ -73,7 +86,14 @@ def build_model(
     return model
 
 
-def add_entry_flow(model, birth_rates):
+def add_entry_flow(model: CompartmentalModel, birth_rates: Dict):
+    """
+    Adds a crude birth flow to the model based on given birth rates.
+
+    Args:
+        model: The compartmental model to add the flow to.
+        birth_rates: A dictionary containing birth rates data.
+    """
     process = "birth"
     crude_birth_rate = get_sigmoidal_interpolation_function(
         birth_rates.index, birth_rates.values
@@ -81,13 +101,32 @@ def add_entry_flow(model, birth_rates):
     model.add_crude_birth_flow(process, crude_birth_rate, "susceptible")
 
 
-def add_natural_death_flow(model):
+def add_natural_death_flow(model: CompartmentalModel):
+    """
+    Adds a universal death flow to the model, to be adjusted later by age stratification.
+    Args:
+        model: The compartmental model to add the flow to.
+    """
     model.add_universal_death_flows(
         "universal_death", death_rate=1.0
     )  # Adjusted later by age stratification
 
 
-def add_infection_flow(model):
+def add_infection_flow(model: CompartmentalModel):
+    """
+    Adds infection flows to the model, allowing for the transition of individuals from
+    specific compartments (e.g., susceptible, late latent, recovered) to the early latent
+    state. The transitions are defined by infection modifiers that adjust the base contact
+    rate, which represents the frequency of infection transmission.
+
+    Args:
+        model: The compartmental model to which the infection flows are to be added.
+
+    Each flow is defined by a pair (origin, modifier):
+    - `origin`: The name of the compartment from which individuals will transition.
+    - `modifier`: A parameter name that modifies the base contact rate for the specific flow.
+      If `None`, the contact rate is used without modification.
+    """
     infection_flows = [
         ("susceptible", None),
         (
@@ -107,6 +146,25 @@ def add_infection_flow(model):
 
 
 def add_latency_flow(model):
+    """
+    Adds latency flows to the compartmental model, representing the progression of the disease
+    through different stages of latency. This function defines three main flows: stabilization,
+    early activation, and late activation.
+
+    - Stabilization flow represents the transition of individuals from the 'early_latent' compartment
+      to the 'late_latent' compartment, indicating a period where the disease does not progress or show symptoms.
+
+    - Early activation flow represents the transition from 'early_latent' to 'infectious', modeling the
+      scenario where the disease becomes active and infectious shortly after the initial infection.
+
+    - Late activation flow represents the transition from 'late_latent' to 'infectious', modeling the
+      scenario where the disease becomes active and infectious after a longer period of latency.
+
+    Each flow is defined with a name, a rate (set to 1.0 and will be adjusted based on empirical data or model needs), and the source and destination compartments.
+
+    Args:
+        model: The compartmental model to which the latency flows are to be added.
+    """
     latency_flows = [
         ("stabilisation", 1.0, "early_latent", "late_latent"),
         ("early_activation", 1.0, "early_latent", "infectious"),
@@ -116,15 +174,43 @@ def add_latency_flow(model):
         model.add_transition_flow(*latency_flow)
 
 
-def add_self_recovery_flow(model):
+def add_self_recovery_flow(model) -> None:
+    """
+    Adds a self-recovery flow to the model, enabling individuals in the 'infectious' compartment
+    to recover spontaneously without medical intervention. This flow represents the natural
+    recovery process of individuals who overcome the infection through their immune response.
+
+    Args:
+        model: The compartmental model to which the self-recovery flow is to be added.
+    """
     model.add_transition_flow("self_recovery", 0.2, "infectious", "recovered")
 
 
-def add_infect_death_flow(model):
+def add_infect_death_flow(model) -> None:
+    """
+    Adds an infection-induced death flow to the model, accounting for individuals in the
+    'infectious' compartment who succumb to the disease. This flow represents the fatal
+    progression of the infection in some individuals, leading to death.
+
+    Args:
+        model: The compartmental model to which the infect-death flow is to be added.
+    """
     model.add_death_flow("infect_death", 0.2, "infectious")
 
 
-def add_detection(model, fixed_params):
+def add_detection(model, fixed_params) -> None:
+    """
+    Adds a detection flow to the model, transitioning individuals from the 'infectious'
+    compartment to the 'on_treatment' compartment based on a dynamically calculated detection rate.
+    The detection rate is determined using a sigmoidal interpolation function based on parameters
+    specified in `fixed_params`. This flow simulates the identification and diagnosis of infectious
+    individuals, leading to their treatment.
+
+    Args:
+        model: The compartmental model to which the detection flow is to be added.
+        fixed_params: A dictionary containing model parameters, including keys and values
+                      for calculating the detection rate.
+    """
     detection_rate = get_sigmoidal_interpolation_function(
         list(fixed_params["detection_rate"].keys()),
         list(fixed_params["detection_rate"].values()),
@@ -134,7 +220,7 @@ def add_detection(model, fixed_params):
     model.add_transition_flow("detection", detection_rate, "infectious", "on_treatment")
 
 
-def add_treatment_related_outcomes(model):
+def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     """
     Adds treatment-related outcome flows to the compartmental model. This includes flows for treatment recovery,
     treatment-related death, and relapse. Initial rates are set as placeholders, with the expectation that
@@ -168,7 +254,17 @@ def stratify_model_by_age(
     death_df,
     fixed_params,
     matrix,
-):
+) -> None:
+    """
+    Applies organ-based stratification to the model, adjusting for different disease dynamics
+    based on organ involvement.
+
+    Args:
+        model: The compartmental model to apply stratification to.
+        infectious_compartments: List of infectious compartment names.
+        organ_strata: List of organ strata for stratification.
+        fixed_params: Dictionary of parameters with fixed values.
+    """
     age_strat = get_age_strat(
         compartments,
         infectious_compartments,
@@ -180,146 +276,38 @@ def stratify_model_by_age(
     model.stratify_with(age_strat)
 
 
-def get_age_strat(compartments, infectious, age_strata, death_df, fixed_params, matrix):
-    strat = AgeStratification("age", age_strata, compartments)
-    strat.set_mixing_matrix(matrix)
-    universal_death_funcs, death_adjs = {}, {}
-    for age in age_strata:
-        universal_death_funcs[age] = get_sigmoidal_interpolation_function(
-            death_df.index, death_df[age]
-        )
-        death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
-    strat.set_flow_adjustments("universal_death", death_adjs)
-    # Set age-specific latency rate
-    for flow_name, latency_params in fixed_params["age_latency"].items():
-        adjs = {
-            str(t): latency_params[max([k for k in latency_params if k <= t])]
-            * (
-                Parameter("progression_multiplier")
-                if flow_name == "late_activation"
-                else 1
-            )
-            for t in age_strata
-        }
-        adjs = {str(k): Overwrite(v) for k, v in adjs.items()}
-        strat.set_flow_adjustments(flow_name, adjs)
+def stratify_model_by_organ(
+    model: CompartmentalModel,
+    infectious_compartments: List[str],
+    organ_strata: List[str],
+    fixed_params: Dict[str, any],
+) -> None:
+    """
+    Applies organ-based stratification to the model. This stratification adjusts the model
+    to account for different disease dynamics based on the specific organ involved. The
+    function retrieves an organ stratification configuration via `get_organ_strat` and
+    applies it to the provided model.
 
-    inf_switch_age = fixed_params["age_infectiousness_switch"]
-    for comp in infectious:
-        inf_adjs = {}
-        for i, age_low in enumerate(age_strata):
-            infectiousness = (
-                1.0
-                if age_low == age_strata[-1]
-                else get_average_sigmoid(age_low, age_strata[i + 1], inf_switch_age)
-            )
-            inf_adjs[str(age_low)] = Multiply(infectiousness)
-
-        strat.add_infectiousness_adjustments(comp, inf_adjs)
-
-    # Add BCG effect without stratifying for BCG
-    bcg_adjs = {}  # Initialize dictionary to hold BCG adjustments
-    for age, multiplier in bcg_multiplier_dict.items():
-        bcg_adjs[age] = calculate_bcg_adjustment(
-            age,
-            multiplier,
-            age_strata,
-            list(fixed_params["time_variant_bcg_perc"].keys()),
-            list(fixed_params["time_variant_bcg_perc"].values()),
-        )
-    strat.set_flow_adjustments("infection_from_susceptible", bcg_adjs)
-
-     # Get the treatment outcomes, using the get_treatment_outcomes function above and apply to model
-    # Initialize dictionaries to hold treatment outcome functions by age strata
-    time_variant_tsr = get_sigmoidal_interpolation_function(
-        list(fixed_params["time_variant_tsr"].keys()),
-        list(fixed_params["time_variant_tsr"].values()),
-    )
-    treatment_recovery_funcs = {}
-    treatment_death_funcs = {}
-    treatment_relapse_funcs = {}
-    for age in age_strata:
-        death_rate = universal_death_funcs[age]
-        treatment_outcomes = Function(
-            get_treatment_outcomes,
-                [
-                    fixed_params["treatment_duration"],
-                    fixed_params["prop_death_among_negative_tx_outcome"],
-                    death_rate,
-                    time_variant_tsr,
-                ],
-            )
-        treatment_recovery_funcs[str(age)] = Multiply(treatment_outcomes[0])
-        treatment_death_funcs[str(age)] = Multiply(treatment_outcomes[1])
-        treatment_relapse_funcs[str(age)] = Multiply(treatment_outcomes[2])
-    strat.set_flow_adjustments("treatment_recovery", treatment_recovery_funcs)
-    strat.set_flow_adjustments("treatment_death", treatment_death_funcs)
-    strat.set_flow_adjustments("relapse", treatment_relapse_funcs)
-    return strat
-
-
-def stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params):
+    Args:
+        model: The compartmental model to which the stratification will be applied.
+        infectious_compartments: A list of compartments within the model that are considered infectious.
+        organ_strata: A list of organ strata names used for stratification, indicating different
+                      disease dynamics based on the specific organ involved.
+        fixed_params: A dictionary of parameters with fixed values that are used to configure
+                      the stratification, such as modifiers for infectiousness or death rates
+                      specific to each organ stratum.
+    """
     organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params)
     model.stratify_with(organ_strat)
 
 
-def get_organ_strat(
-    infectious_compartments: list,
-    organ_strata,
-    fixed_params: dict,
-):
-    strat = Stratification("organ", organ_strata, infectious_compartments)
-
-    # Define infectiousness adjustment by organ status
-    inf_adj = {
-        stratum: Multiply(fixed_params.get(f"{stratum}_infect_multiplier", 1))
-        for stratum in organ_strata
-    }
-    for comp in infectious_compartments:
-        strat.add_infectiousness_adjustments(comp, inf_adj)
-
-    # Define different natural history (infection death) by organ status
-    infect_death_adjs = {
-        stratum: Overwrite(
-            Parameter(
-                f"{stratum if stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
-            )
-        )
-        for stratum in organ_strata
-    }
-    strat.set_flow_adjustments("infect_death", infect_death_adjs)
-
-    # Define different natural history (self recovery) by organ status
-    self_recovery_adjustments = {
-        stratum: Overwrite(
-            Parameter(
-                f"{'smear_negative' if stratum == 'extrapulmonary' else stratum}_self_recovery"
-            )
-        )
-        for stratum in organ_strata
-    }
-    strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
-
-
-    # Adjust the progression rates by organ using the requested incidence proportions
-    splitting_proportions = {
-        "smear_positive": fixed_params["incidence_props_pulmonary"]
-        * fixed_params["incidence_props_smear_positive_among_pulmonary"],
-        "smear_negative": fixed_params["incidence_props_pulmonary"]
-        * (1.0 - fixed_params["incidence_props_smear_positive_among_pulmonary"]),
-        "extrapulmonary": 1.0 - fixed_params["incidence_props_pulmonary"],
-    }
-    for flow_name in ["early_activation", "late_activation"]:
-        flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
-        strat.set_flow_adjustments(flow_name, flow_adjs)
-    return strat
-
-
 def seed_infectious(model: CompartmentalModel):
-    """Seed infectious.
+    """
+    Adds an importation flow to the model to simulate the initial seeding of infectious individuals.
+    This is used to introduce the disease into the population at any time of the simulation.
+
     Args:
-        model: The summer epidemiological model
-        latent_compartments: The names of the latent compartments
+        model: The compartmental model to which the infectious seed is to be added.
     """
     seed_args = [
         Time,
@@ -334,76 +322,3 @@ def seed_infectious(model: CompartmentalModel):
         "infectious",
         split_imports=False,
     )
-
-
-def calculate_bcg_adjustment(
-    age, multiplier, age_strata, bcg_time_keys, bcg_time_values
-):
-    if multiplier < 1.0:
-        # Calculate age-adjusted multiplier using a sigmoidal interpolation function
-        age_adjusted_time = Time - get_average_age_for_bcg(age, age_strata)
-        interpolation_func = get_sigmoidal_interpolation_function(
-            bcg_time_keys,
-            bcg_time_values,
-            age_adjusted_time,
-        )
-        return Multiply(Function(bcg_multiplier_func, [interpolation_func, multiplier]))
-    else:
-        # No adjustment needed for multipliers of 1.0
-        return None
-
-
-def request_model_outputs(
-    model,
-    compartments,
-    latent_compartments,
-    infectious_compartments,
-    age_strata,
-    organ_strata,
-):
-    # Request total population size
-    total_pop = model.request_output_for_compartments("total_population", compartments)
-
-    # Calculate and request percentage of latent population
-    latent_pop_size = model.request_output_for_compartments(
-        "latent_population_size", latent_compartments
-    )
-    model.request_function_output(
-        "percentage_latent", 100.0 * latent_pop_size / total_pop
-    )
-
-    # Calculate and request prevalence of infectious population
-    infectious_pop_size = model.request_output_for_compartments(
-        "infectious_population_size", infectious_compartments
-    )
-    model.request_function_output(
-        "prevalence_infectious", 1e5 * infectious_pop_size / total_pop
-    )
-
-    model.request_output_for_flow("notification", "detection", save_results=True)
-
-    # Request proportion of each compartment in the total population
-    for compartment in compartments:
-        compartment_size = model.request_output_for_compartments(
-            f"number_{compartment}", compartment
-        )
-        model.request_function_output(
-            f"prop_{compartment}", compartment_size / total_pop
-        )
-
-    # Request total population by age stratum
-    for age_stratum in age_strata:
-        model.request_output_for_compartments(
-            f"total_populationXage_{age_stratum}",
-            compartments,
-            strata={"age": str(age_stratum)},
-        )
-    for organ_stratum in organ_strata:
-        organ_size = model.request_output_for_compartments(
-            f"total_populationXorgan_{organ_stratum}",
-            compartments,
-            strata={"organ": str(organ_stratum)},
-        )
-        model.request_function_output(
-            f"prop_{organ_stratum}", organ_size / infectious_pop_size
-        )
