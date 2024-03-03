@@ -3,6 +3,7 @@ from jax import numpy as jnp
 import numpy as np
 from pathlib import Path
 
+
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
 
@@ -87,7 +88,7 @@ def get_average_age_for_bcg(agegroup, age_breakpoints):
 def bcg_multiplier_func(tfunc, fmultiplier):
     return 1.0 - tfunc / 100.0 * (1.0 - fmultiplier)
 
-def get_treatment_outcomes(
+def calculate_treatment_outcomes(
     duration, prop_death_among_non_success, natural_death_rate, tsr
 ):
     # Calculate the proportion of people dying from natural causes while on treatment
@@ -117,4 +118,13 @@ def get_treatment_outcomes(
     return tuple(
         [param * duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
     )
+
+
+def calculate_cdr(detection_rate, infect_death = 0.2 , self_recovery = 0.2):
+    return detection_rate / (detection_rate + infect_death + self_recovery)
+       
+        
+
+
+
 

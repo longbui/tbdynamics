@@ -6,7 +6,7 @@ from summer2 import AgeStratification
 from summer2 import Overwrite, Multiply
 from tbdynamics.utils import (
     get_average_sigmoid,
-    get_treatment_outcomes,
+    calculate_treatment_outcomes,
     bcg_multiplier_func,
     get_average_age_for_bcg,
 )
@@ -101,13 +101,11 @@ def get_age_strat(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-    treatment_recovery_funcs = {}
-    treatment_death_funcs = {}
-    treatment_relapse_funcs = {}
+    treatment_relapse_funcs, treatment_death_funcs, treatment_recovery_funcs = {}, {}, {}
     for age in age_strata:
         death_rate = universal_death_funcs[age]
         treatment_outcomes = Function(
-            get_treatment_outcomes,
+            calculate_treatment_outcomes,
             [
                 fixed_params["treatment_duration"],
                 fixed_params["prop_death_among_negative_tx_outcome"],

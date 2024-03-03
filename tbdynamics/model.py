@@ -63,7 +63,7 @@ def build_model(
     add_latency_flow(model)
     add_infect_death_flow(model)
     add_self_recovery_flow(model)
-    add_detection(model, fixed_params)
+    add_detection(model)
     add_treatment_related_outcomes(model)
     stratify_model_by_age(
         model,
@@ -108,7 +108,7 @@ def add_natural_death_flow(model: CompartmentalModel):
         model: The compartmental model to add the flow to.
     """
     model.add_universal_death_flows(
-        "universal_death", death_rate=1.0
+        "universal_death", 1.0
     )  # Adjusted later by age stratification
 
 
@@ -198,7 +198,7 @@ def add_infect_death_flow(model) -> None:
     model.add_death_flow("infect_death", 0.2, "infectious")
 
 
-def add_detection(model, fixed_params) -> None:
+def add_detection(model) -> None:
     """
     Adds a detection flow to the model, transitioning individuals from the 'infectious'
     compartment to the 'on_treatment' compartment based on a dynamically calculated detection rate.
@@ -211,13 +211,10 @@ def add_detection(model, fixed_params) -> None:
         fixed_params: A dictionary containing model parameters, including keys and values
                       for calculating the detection rate.
     """
-    detection_rate = get_sigmoidal_interpolation_function(
-        list(fixed_params["detection_rate"].keys()),
-        list(fixed_params["detection_rate"].values()),
-    )
+  
 
     # Adding a transition flow named 'detection' to the model
-    model.add_transition_flow("detection", detection_rate, "infectious", "on_treatment")
+    model.add_transition_flow("detection", 1.0, "infectious", "on_treatment")
 
 
 def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
