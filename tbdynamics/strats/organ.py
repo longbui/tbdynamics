@@ -76,13 +76,18 @@ def get_organ_strat(
                     get_sigmoidal_interpolation_function(
                         list(fixed_params["detection_rate"].keys()),
                         list(fixed_params["detection_rate"].values()),
-                        Time
-                    )
+                        Time,
+                    ),
+                    Parameter(
+                        f"{organ_stratum if organ_stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
+                    ),
+                    Parameter(
+                        f"{organ_stratum if organ_stratum != 'extrapulmonary' else 'smear_negative'}_self_recovery"
+                    ),
                 ],
-            )
-            * fixed_params[f"passive_screening_sensitivity_{organ_stratum}"]
-            * 0.8
+            ) * fixed_params[f"passive_screening_sensitivity_{organ_stratum}"]
         )
+        print(detection_adjs[organ_stratum])
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)
 
