@@ -87,7 +87,6 @@ def get_organ_strat(
                 ],
             ) * fixed_params[f"passive_screening_sensitivity_{organ_stratum}"]
         )
-        print(detection_adjs[organ_stratum])
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)
 

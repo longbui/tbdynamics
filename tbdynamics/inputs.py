@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import yaml
+import numpy as np
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
@@ -67,7 +68,7 @@ def load_params(file_path: str) -> dict:
     return data
 
 
-matrix = [
+values = [
     [
         368.223499932989,
         270.84359260056294,
@@ -117,3 +118,5 @@ matrix = [
         441.38141281813995,
     ],
 ]
+
+matrix = np.array(values)
