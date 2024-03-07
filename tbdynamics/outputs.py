@@ -2,7 +2,7 @@ from summer2 import CompartmentalModel
 from typing import List
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Function, Parameter, Time
-from tbdynamics.utils import calculate_cdr
+from tbdynamics.utils import calculate_cdr_adjustments
 
 def request_model_outputs(
     model: CompartmentalModel,
@@ -11,6 +11,7 @@ def request_model_outputs(
     infectious_compartments: List[str],
     age_strata: List[int],
     organ_strata: List[str],
+    fixed_params,
 ):
     """
     Requests various model outputs
@@ -76,12 +77,13 @@ def request_model_outputs(
         model.request_function_output(
             f"prop_{organ_stratum}", organ_size / infectious_pop_size
         )
+        model.request_function_output(
+            f"prevalence_{organ_stratum}", 1e5 * organ_size / total_pop
+        )
 
-
-def request_cdr(model,organ_strata,fixed_params):
-    for organ_stratum in organ_strata:
+    #request treatment cdr for each organ stratum   
         f = Function(
-                calculate_cdr,
+                calculate_cdr_adjustments,
                 [
                     get_sigmoidal_interpolation_function(
                         list(fixed_params["detection_rate"].keys()),
@@ -99,5 +101,7 @@ def request_cdr(model,organ_strata,fixed_params):
 
         model.add_computed_value_func(f"cdr_{organ_stratum}", f)
         model.request_computed_value_output(f"cdr_{organ_stratum}")
+
+    
             
   

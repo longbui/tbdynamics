@@ -7,7 +7,7 @@ from summer2.parameters import Parameter, Function, Time
 from .utils import triangle_wave_func
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
 from .constants import organ_strata
-from .outputs import request_model_outputs, request_cdr
+from .outputs import request_model_outputs
 from .strats import get_age_strat, get_organ_strat
 
 
@@ -82,8 +82,8 @@ def build_model(
         infectious_compartments,
         age_strata,
         organ_strata,
+        fixed_params
     )
-    request_cdr(model, organ_strata, fixed_params)
     return model
 
 
