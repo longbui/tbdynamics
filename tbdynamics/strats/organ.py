@@ -1,7 +1,7 @@
 from typing import List, Dict
 from summer2 import Stratification
 from summer2 import Overwrite, Multiply
-from summer2.parameters import Parameter, Function, Time
+from summer2.parameters import Parameter, Function
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from tbdynamics.utils import calculate_cdr
 
@@ -59,14 +59,6 @@ def get_organ_strat(
     }
     strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
 
-    # detection_adjs = {}
-    # for organ_stratum in organ_strata:
-    #     detection_adjs[organ_stratum] = fixed_params[
-    #         f"passive_screening_sensitivity_{organ_stratum}"
-    #     ]
-
-    # detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
-    # strat.set_flow_adjustments("detection", detection_adjs)
     detection_adjs = {}
     for organ_stratum in organ_strata:
         detection_adjs[organ_stratum] = (
@@ -76,13 +68,12 @@ def get_organ_strat(
                     get_sigmoidal_interpolation_function(
                         list(fixed_params["detection_rate"].keys()),
                         list(fixed_params["detection_rate"].values()),
-                        Time,
                     ),
                     Parameter(
-                        f"{organ_stratum if organ_stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
+                        f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_death_rate"
                     ),
                     Parameter(
-                        f"{organ_stratum if organ_stratum != 'extrapulmonary' else 'smear_negative'}_self_recovery"
+                        f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_self_recovery"
                     ),
                 ],
             ) * fixed_params[f"passive_screening_sensitivity_{organ_stratum}"]

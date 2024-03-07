@@ -7,7 +7,7 @@ from summer2.parameters import Parameter, Function, Time
 from .utils import triangle_wave_func
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
 from .constants import organ_strata
-from .outputs import request_model_outputs
+from .outputs import request_model_outputs, request_cdr
 from .strats import get_age_strat, get_organ_strat
 
 
@@ -83,6 +83,7 @@ def build_model(
         age_strata,
         organ_strata,
     )
+    request_cdr(model, organ_strata, fixed_params)
     return model
 
 
@@ -317,5 +318,5 @@ def seed_infectious(model: CompartmentalModel):
         "seed_infectious",
         voc_seed_func,
         "infectious",
-        split_imports=False,
+        split_imports=True,
     )
