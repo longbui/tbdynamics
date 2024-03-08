@@ -66,22 +66,21 @@ def get_age_strat(
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
-            # Default infectiousness is set to 1.0 for all ages unless specified otherwise.
-            infectiousness = 1.0
-            # Adjust infectiousness based on age, except for the "on_treatment" compartment.
-            if comp != "on_treatment":
-                if age_low != age_strata[-1]:
-                    # Calculate infectiousness using a sigmoid function for age intervals,
-                    # except for the last age group, which defaults to 1.0.
-                    infectiousness = get_average_sigmoid(
+            if i < len(age_strata) - 1:
+                average_infectiousness = get_average_sigmoid(
                         age_low, age_strata[i + 1], inf_switch_age
                     )
-
+            else:
+                # Set infectiousness to 1. for the oldest age group
+                average_infectiousness = 1.0
+            # Adjust infectiousness based on age, except for the "on_treatment" compartment.
+            if comp == "on_treatment":
+                average_infectiousness *= fixed_params['on_treatment_infect_multiplier']
             # Update the adjustments dictionary for the current age group.
-            inf_adjs[str(age_low)] = Multiply(infectiousness)
+            inf_adjs[str(age_low)] = Multiply(average_infectiousness)
 
     # Apply infectiousness adjustments to the current compartment.
-    strat.add_infectiousness_adjustments(comp, inf_adjs)
+        strat.add_infectiousness_adjustments(comp, inf_adjs)
 
     # Add BCG effect without stratifying for BCG
     bcg_adjs = {}  # Initialize dictionary to hold BCG adjustments
