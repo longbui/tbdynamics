@@ -12,6 +12,7 @@ age_latency:
     5: 4.383
     15: 1.972
 age_infectiousness_switch: 15.0
+on_treatment_infect_multiplier: 0.08
 smear_negative_infect_multiplier: 0.25
 extrapulmonary_infect_multiplier: 0.0
 incidence_props_pulmonary: 0.83
