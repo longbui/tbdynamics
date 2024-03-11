@@ -18,11 +18,8 @@ extrapulmonary_infect_multiplier: 0.0
 incidence_props_pulmonary: 0.85
 incidence_props_smear_positive_among_pulmonary: 0.83
 prop_death_among_negative_tx_outcome: 0.2
-passive_screening_sensitivity_extrapulmonary: 0.5
-passive_screening_sensitivity_smear_negative: 0.7
-passive_screening_sensitivity_smear_positive: 1.0
 time_variant_bcg_perc:
-  1930: 0.
+  1984: 0.
   1990: 49.
   1991: 71.
   1992: 72.
@@ -54,7 +51,7 @@ time_variant_bcg_perc:
   2018: 98.
   2019: 89.
 detection_rate: # from world bank data
-  1980: 0.1
+  1976: 0.
   2000: 0.38
   2001: 0.39
   2002: 0.42
@@ -78,9 +75,9 @@ detection_rate: # from world bank data
   2020: 0.61
   2021: 0.48
   2022: 0.59
-treatment_duration: 0.5
+treatment_duration: 0.75
 time_variant_tsr:
-  1986: 0.4
+  1956: 0.1
   2000: 0.92
   2001: 0.93
   2002: 0.92
