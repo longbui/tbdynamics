@@ -16,6 +16,10 @@ def get_death_rate():
         Path(DATA_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"]
     ).set_index(["Time", "Age"])
 
+def get_immigration():
+    series=   pd.read_csv(Path(DATA_PATH / "immi.csv"), index_col= 0)["value"]
+    return series.astype(np.float64)
+
 
 def process_death_rate(data, age_strata, year_indices):
     years = set(data.index.get_level_values(0))

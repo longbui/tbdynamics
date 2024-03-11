@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import List, Dict
+import pandas as pd
 from summer2 import CompartmentalModel
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
-from .inputs import get_birth_rate, get_death_rate, process_death_rate
+from .inputs import get_birth_rate, get_death_rate, process_death_rate, get_immigration
 from .constants import organ_strata
 from .outputs import request_model_outputs, request_cdr
 from .strats import get_age_strat, get_organ_strat
@@ -59,6 +60,7 @@ def build_model(
     seed_infectious(model)
     add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
+    add_immigration(model, get_immigration())
     add_infection_flow(model)
     add_latency_flow(model)
     add_infect_death_flow(model)
@@ -212,7 +214,6 @@ def add_detection(model) -> None:
         fixed_params: A dictionary containing model parameters, including keys and values
                       for calculating the detection rate.
     """
-  
 
     # Adding a transition flow named 'detection' to the model
     model.add_transition_flow("detection", 1.0, "infectious", "on_treatment")
@@ -319,4 +320,24 @@ def seed_infectious(model: CompartmentalModel):
         voc_seed_func,
         "infectious",
         split_imports=True,
+    )
+
+
+def add_immigration(model: CompartmentalModel, immigration: pd.Series):
+    """
+    Adds an immigration flow to a compartmental model based on a time series of immigration rates.
+
+    Parameters:
+    - model (CompartmentalModel): The compartmental model to which the immigration flow will be added.
+    - immigration (pd.Series): A pandas Series object where the index represents time points and
+      the values represent the immigration rate at those points.
+
+    Returns:
+    - None
+    """
+    immigration_func = get_sigmoidal_interpolation_function(
+        list(immigration.index), list(immigration.values)
+    )
+    model.add_importation_flow(
+        "immigration", immigration_func, "susceptible", split_imports=False
     )
