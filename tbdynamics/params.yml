@@ -54,7 +54,7 @@ time_variant_bcg_perc:
   2018: 98.
   2019: 89.
 detection_rate: # from world bank data
-  1976: 0.
+  1975: 0.
   2000: 0.38
   2001: 0.39
   2002: 0.42
