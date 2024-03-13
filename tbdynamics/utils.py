@@ -120,9 +120,8 @@ def calculate_treatment_outcomes(
     )
 
 
-def calculate_cdr(case_detection_rate, infect_death, self_recovery):
-    cdr = case_detection_rate * (infect_death + self_recovery) / (1 - case_detection_rate)
-    return jnp.min(jnp.array([cdr, 1.0]))
+def calculate_cdr(case_detection_prop, infect_death, self_recovery):
+    return case_detection_prop * (infect_death + self_recovery) / (1 - case_detection_prop)
        
         
 
