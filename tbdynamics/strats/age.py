@@ -106,7 +106,7 @@ def get_age_strat(
         treatment_outcomes = Function(
             calculate_treatment_outcomes,
             [
-                fixed_params["treatment_duration"],
+                Parameter("treatment_duration"),
                 fixed_params["prop_death_among_negative_tx_outcome"],
                 death_rate,
                 time_variant_tsr,
