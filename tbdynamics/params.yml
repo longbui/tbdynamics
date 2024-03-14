@@ -73,6 +73,7 @@ detection_rate: # from world bank data
   2018: 0.58
   2019: 0.61
   2020: 0.61
+
 treatment_duration: 1.
 time_variant_tsr:
   1986: 0.5
