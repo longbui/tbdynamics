@@ -56,7 +56,7 @@ def get_age_groups_in_range(age_groups, lower_limit, upper_limit):
     ]
 
 
-def load_params(file_path: str) -> dict:
+def load_params() -> dict:
     """
     Loads a YAML file and returns its contents as a Python dictionary.
 
@@ -66,10 +66,18 @@ def load_params(file_path: str) -> dict:
     Returns:
         dict: The contents of the YAML file as a Python dictionary.
     """
-    with open(file_path, "r") as file:
+    with open(Path(__file__).resolve().parent / 'params.yml', "r") as file:
         # Load the YAML content
         data = yaml.safe_load(file)
     return data
+
+def load_targets():
+    with open(Path(__file__).resolve().parent / 'targets.yml', 'r') as file:
+        data = yaml.safe_load(file)
+
+    # Convert the loaded YAML data to a Pandas Series (assuming the data structure allows for it)
+    # This example assumes the YAML file contains a dictionary at its root
+    return {key: pd.Series(value) for key, value in data.items()}
 
 
 values = [

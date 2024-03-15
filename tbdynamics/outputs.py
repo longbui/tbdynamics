@@ -2,7 +2,7 @@ from summer2 import CompartmentalModel
 from typing import List
 from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Function, Parameter, Time
-from tbdynamics.utils import calculate_cdr
+from tbdynamics.utils import tanh_based_scaleup
 
 def request_model_outputs(
     model: CompartmentalModel,
@@ -77,27 +77,19 @@ def request_model_outputs(
             f"prop_{organ_stratum}", organ_size / infectious_pop_size
         )
 
-
-def request_cdr(model,organ_strata,fixed_params):
-    for organ_stratum in organ_strata:
-        f = Function(
-                calculate_cdr,
+def request_cdr(model,):
+    f =  Function(
+            tanh_based_scaleup,
                 [
-                    get_sigmoidal_interpolation_function(
-                        list(fixed_params["detection_rate"].keys()),
-                        list(fixed_params["detection_rate"].values()),
-                        Time
-                    ),
-                    Parameter(
-                        f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_death_rate"
-                    ),
-                    Parameter(
-                        f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_self_recovery"
-                    ),
+                    Time,
+                    Parameter("screening_scaleup_shape"),
+                    Parameter("screening_inflection_time"),
+                    Parameter("screening_start_asymp"),
+                    Parameter("screening_end_asymp"),
                 ],
             )
 
-        model.add_computed_value_func(f"cdr_{organ_stratum}", f)
-        model.request_computed_value_output(f"cdr_{organ_stratum}")
+    model.add_computed_value_func("cdr", f)
+    model.request_computed_value_output("cdr")
             
   

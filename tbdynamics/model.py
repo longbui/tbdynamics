@@ -21,9 +21,6 @@ def build_model(
     latent_compartments: List[str],
     infectious_compartments: List[str],
     age_strata: List[int],
-    time_start: float,
-    time_end: float,
-    time_step: float,
     fixed_params: Dict[str, any],
     matrix,
 ) -> CompartmentalModel:
@@ -46,10 +43,10 @@ def build_model(
         A configured CompartmentalModel object.
     """
     model = CompartmentalModel(
-        times=(time_start, time_end),
+        times=(fixed_params['time_start'], fixed_params['time_end']),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
-        timestep=time_step,
+        timestep=fixed_params['time_step'],
     )
 
     birth_rates = get_birth_rate()
@@ -85,7 +82,7 @@ def build_model(
         age_strata,
         organ_strata,
     )
-    request_cdr(model, organ_strata, fixed_params)
+    request_cdr(model)
     return model
 
 
