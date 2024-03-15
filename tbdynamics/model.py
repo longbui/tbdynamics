@@ -57,7 +57,7 @@ def build_model(
     seed_infectious(model)
     add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
-    add_immigration(model, get_immigration())
+    # add_immigration(model, get_immigration())
     add_infection_flow(model)
     add_latency_flow(model)
     add_infect_death_flow(model)
@@ -319,22 +319,3 @@ def seed_infectious(model: CompartmentalModel):
         split_imports=True,
     )
 
-
-def add_immigration(model: CompartmentalModel, immigration: pd.Series):
-    """
-    Adds an immigration flow to a compartmental model based on a time series of immigration rates.
-
-    Parameters:
-    - model (CompartmentalModel): The compartmental model to which the immigration flow will be added.
-    - immigration (pd.Series): A pandas Series object where the index represents time points and
-      the values represent the immigration rate at those points.
-
-    Returns:
-    - None
-    """
-    immigration_func = get_sigmoidal_interpolation_function(
-        list(immigration.index), list(immigration.values)
-    )
-    model.add_importation_flow(
-        "immigration", immigration_func, "susceptible", split_imports=False
-    )
