@@ -19,7 +19,10 @@ prop_smear_positive:
   2022: 0.83
 
 incidence:
-  2022: 176
+  2022: 176.0
 
 percentage_latent:
   2019: 43.0
+
+prevalence_pulmonary: 
+  2017: 322.0

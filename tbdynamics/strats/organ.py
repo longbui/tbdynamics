@@ -27,10 +27,11 @@ def get_organ_strat(
         A Stratification object configured with organ-specific adjustments.
     """
     strat = Stratification("organ", organ_strata, infectious_compartments)
+    strat.set_population_split({'smear_positive': 1.0, 'smear_negative': 0., 'extrapulmonary': 0.})
 
     # Define infectiousness adjustment by organ status
     inf_adj = {
-        stratum: Multiply(fixed_params.get(f"{stratum}_infect_multiplier", 1))
+        stratum: Multiply(fixed_params[f"{stratum}_infect_multiplier"])
         for stratum in organ_strata
     }
     for comp in infectious_compartments:

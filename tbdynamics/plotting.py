@@ -2,7 +2,8 @@ import plotly.graph_objects as go
 from pandas import DataFrame, Series
 
 def plot_model_vs_actual(
-    modeled_df: DataFrame, actual_series: Series,
+    modeled_df: DataFrame,
+    actual_series: Series,
     modeled_column: str,
     y_axis_title: str,
     plot_title: str, actual_color: str = "red"

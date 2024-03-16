@@ -40,6 +40,7 @@ def get_age_strat(
         AgeStratification: An object representing the configured age stratification for the model.
     """
     strat = AgeStratification("age", age_strata, compartments)
+    # strat.set_population_split({'0': 0.1666, '5': 0.1666, '15': 0.1666, '35': 0.1666, '50': 0.1666, '70':0.1666})
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
     for age in age_strata:

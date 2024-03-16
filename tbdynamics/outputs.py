@@ -4,6 +4,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Function, Parameter, Time
 from tbdynamics.utils import tanh_based_scaleup
 
+
 def request_model_outputs(
     model: CompartmentalModel,
     compartments: List[str],
@@ -34,19 +35,46 @@ def request_model_outputs(
         "percentage_latent", 100.0 * latent_pop_size / total_pop
     )
 
-    # Calculate and request prevalence of infectious population
+    # Calculate and request prevalence of pulmonary
+    for organ_stratum in organ_strata:
+        model.request_output_for_compartments(
+                f"infectious_size_X{organ_stratum}",
+                infectious_compartments,
+                strata={"organ": organ_stratum},
+                save_results=False,
+            )
+    pulmonary_outputs = [
+        f"infectious_size_X{organ_stratum}"
+        for organ_stratum in ["smear_positive", "smear_negative"]
+    ]
+    pulmonary_pop_size = model.request_aggregate_output(
+        "pulmonary_pop_size", pulmonary_outputs
+    )
+    model.request_function_output(
+        "prevalence_pulmonary", 1e5 * pulmonary_pop_size / total_pop
+    )
+    #total prevalence
     infectious_pop_size = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
     model.request_function_output(
         "prevalence_infectious", 1e5 * infectious_pop_size / total_pop
     )
-    # incidence
-    model.request_output_for_flow("incidence_early_raw", "early_activation", save_results=False)
-    model.request_output_for_flow("incidence_late_raw", "late_activation", save_results=False)
 
-    incidence_raw = model.request_aggregate_output("incidence_raw",["incidence_early_raw", "incidence_late_raw"] , save_results=False)
-    model.request_function_output("incidence", 1e5 * incidence_raw/total_pop)
+    # incidence
+    model.request_output_for_flow(
+        "incidence_early_raw", "early_activation", save_results=False
+    )
+    model.request_output_for_flow(
+        "incidence_late_raw", "late_activation", save_results=False
+    )
+
+    incidence_raw = model.request_aggregate_output(
+        "incidence_raw",
+        ["incidence_early_raw", "incidence_late_raw"],
+        save_results=False,
+    )
+    model.request_function_output("incidence", 1e5 * incidence_raw / total_pop)
 
     # notification
     model.request_output_for_flow("notification", "detection", save_results=True)
@@ -77,19 +105,20 @@ def request_model_outputs(
             f"prop_{organ_stratum}", organ_size / infectious_pop_size
         )
 
-def request_cdr(model,):
-    f =  Function(
-            tanh_based_scaleup,
-                [
-                    Time,
-                    Parameter("screening_scaleup_shape"),
-                    Parameter("screening_inflection_time"),
-                    Parameter("screening_start_asymp"),
-                    Parameter("screening_end_asymp"),
-                ],
-            )
+
+def request_cdr(
+    model,
+):
+    f = Function(
+        tanh_based_scaleup,
+        [
+            Time,
+            Parameter("screening_scaleup_shape"),
+            Parameter("screening_inflection_time"),
+            Parameter("screening_start_asymp"),
+            Parameter("screening_end_asymp"),
+        ],
+    )
 
     model.add_computed_value_func("cdr", f)
     model.request_computed_value_output("cdr")
-            
-  
