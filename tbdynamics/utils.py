@@ -26,6 +26,7 @@ def round_sigfig(value: float, sig_figs: int) -> float:
             else 0.0
         )
 
+
 def triangle_wave_func(
     time: float,
     start: float,
@@ -51,6 +52,7 @@ def triangle_wave_func(
         time_from_peak < duration * 0.5, peak - time_from_peak * gradient, 0.0
     )
 
+
 def get_average_sigmoid(low_val, upper_val, inflection):
     """
     A sigmoidal function (x -> 1 / (1 + exp(-(x-alpha)))) is used to model a progressive increase with age.
@@ -73,6 +75,7 @@ def tanh_based_scaleup(t, shape, inflection_time, start_asymptote, end_asymptote
     rng = end_asymptote - start_asymptote
     return (jnp.tanh(shape * (t - inflection_time)) / 2.0 + 0.5) * rng + start_asymptote
 
+
 def get_average_age_for_bcg(agegroup, age_breakpoints):
     agegroup_idx = age_breakpoints.index(int(agegroup))
     if agegroup_idx == len(age_breakpoints) - 1:
@@ -87,6 +90,7 @@ def get_average_age_for_bcg(agegroup, age_breakpoints):
 
 def bcg_multiplier_func(tfunc, fmultiplier):
     return 1.0 - tfunc / 100.0 * (1.0 - fmultiplier)
+
 
 def calculate_treatment_outcomes(
     duration, prop_death_among_non_success, natural_death_rate, tsr
@@ -121,10 +125,19 @@ def calculate_treatment_outcomes(
 
 
 def calculate_cdr(case_detection_prop, infect_death, self_recovery):
-    return case_detection_prop * (infect_death + self_recovery) / (1 - case_detection_prop)
-       
-        
+    return (
+        case_detection_prop * (infect_death + self_recovery) / (1 - case_detection_prop)
+    )
 
 
+def get_latency_with_diabetes(
+    t, prop_diabetes, previous_progression_rate, rr_progression_diabetes
+):
+    diabetes_scale_up = tanh_based_scaleup(
+        t, shape=0.05, inflection_time=1980, start_asymptote=0.0, end_asymptote=1.0
+    )
 
-
+    # Calculate adjusted progression rate
+    return (
+        1.0 - diabetes_scale_up * prop_diabetes * (1.0 - rr_progression_diabetes)
+    ) * previous_progression_rate

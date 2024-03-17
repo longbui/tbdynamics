@@ -34,11 +34,11 @@ def get_all_priors() -> list:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("start_population_size", (2000000, 8000000)),
+        esp.UniformPrior("start_population_size", (2000000.0, 8000000.0)),
         esp.UniformPrior("contact_rate", (0.0001, 0.2)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
-        esp.UniformPrior("rr_infection_recovered", (0.1, 0.5)),
-        esp.UniformPrior("progression_multiplier", (1.0, 5.0)),
+        esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
+        esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
         esp.UniformPrior("seed_time", (1890.0, 1950.0)),
         esp.UniformPrior("seed_num", (1.0, 100.00)),
         esp.UniformPrior("seed_duration", (1.0, 5.0)),
@@ -59,8 +59,5 @@ def get_targets() -> list:
         est.NormalTarget("notification", target_data["notifs"], stdev=100.0),
         est.NormalTarget(
             "percentage_latent", target_data["percentage_latent"], stdev=1.0
-        ),
-        est.NormalTarget(
-            "prevalence_pulmonary", target_data["prevalence_pulmonary"], stdev=10.0
-        ),
+        )
     ]

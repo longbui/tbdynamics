@@ -9,6 +9,7 @@ from tbdynamics.utils import (
     calculate_treatment_outcomes,
     bcg_multiplier_func,
     get_average_age_for_bcg,
+    get_latency_with_diabetes,
 )
 from tbdynamics.constants import bcg_multiplier_dict
 
@@ -40,7 +41,6 @@ def get_age_strat(
         AgeStratification: An object representing the configured age stratification for the model.
     """
     strat = AgeStratification("age", age_strata, compartments)
-    # strat.set_population_split({'0': 0.1666, '5': 0.1666, '15': 0.1666, '35': 0.1666, '50': 0.1666, '70':0.1666})
     strat.set_mixing_matrix(matrix)
     universal_death_funcs, death_adjs = {}, {}
     for age in age_strata:
@@ -55,7 +55,7 @@ def get_age_strat(
             str(t): latency_params[max([k for k in latency_params if k <= t])]
             * (
                 Parameter("progression_multiplier")
-                if flow_name == "late_activation"
+                if flow_name in  ["late_activation", "early_activation"]
                 else 1
             )
             for t in age_strata
@@ -69,18 +69,18 @@ def get_age_strat(
         for i, age_low in enumerate(age_strata):
             if i < len(age_strata) - 1:
                 average_infectiousness = get_average_sigmoid(
-                        age_low, age_strata[i + 1], inf_switch_age
-                    )
+                    age_low, age_strata[i + 1], inf_switch_age
+                )
             else:
                 # Set infectiousness to 1. for the oldest age group
                 average_infectiousness = 1.0
             # Adjust infectiousness based on age, except for the "on_treatment" compartment.
             if comp == "on_treatment":
-                average_infectiousness *= fixed_params['on_treatment_infect_multiplier']
+                average_infectiousness *= fixed_params["on_treatment_infect_multiplier"]
             # Update the adjustments dictionary for the current age group.
             inf_adjs[str(age_low)] = Multiply(average_infectiousness)
 
-    # Apply infectiousness adjustments to the current compartment.
+        # Apply infectiousness adjustments to the current compartment.
         strat.add_infectiousness_adjustments(comp, inf_adjs)
 
     # Add BCG effect without stratifying for BCG
@@ -101,7 +101,11 @@ def get_age_strat(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-    treatment_relapse_funcs, treatment_death_funcs, treatment_recovery_funcs = {}, {}, {}
+    treatment_relapse_funcs, treatment_death_funcs, treatment_recovery_funcs = (
+        {},
+        {},
+        {},
+    )
     for age in age_strata:
         death_rate = universal_death_funcs[age]
         treatment_outcomes = Function(

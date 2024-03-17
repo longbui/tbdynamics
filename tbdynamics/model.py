@@ -57,7 +57,6 @@ def build_model(
     seed_infectious(model)
     add_entry_flow(model, birth_rates)
     add_natural_death_flow(model)
-    # add_immigration(model, get_immigration())
     add_infection_flow(model)
     add_latency_flow(model)
     add_infect_death_flow(model)
