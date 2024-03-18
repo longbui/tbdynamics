@@ -173,7 +173,7 @@ def add_latency_flow(model):
         model.add_transition_flow(*latency_flow)
 
 
-def add_self_recovery_flow(model) -> None:
+def add_self_recovery_flow(model: CompartmentalModel) -> None:
     """
     Adds a self-recovery flow to the model, enabling individuals in the 'infectious' compartment
     to recover spontaneously without medical intervention. This flow represents the natural
@@ -182,10 +182,10 @@ def add_self_recovery_flow(model) -> None:
     Args:
         model: The compartmental model to which the self-recovery flow is to be added.
     """
-    model.add_transition_flow("self_recovery", 0.2, "infectious", "recovered")
+    model.add_transition_flow("self_recovery", 1.0, "infectious", "recovered") #later adjusted by organ status
 
 
-def add_infect_death_flow(model) -> None:
+def add_infect_death_flow(model: CompartmentalModel) -> None:
     """
     Adds an infection-induced death flow to the model, accounting for individuals in the
     'infectious' compartment who succumb to the disease. This flow represents the fatal
@@ -194,7 +194,7 @@ def add_infect_death_flow(model) -> None:
     Args:
         model: The compartmental model to which the infect-death flow is to be added.
     """
-    model.add_death_flow("infect_death", 0.2, "infectious")
+    model.add_death_flow("infect_death", 1.0, "infectious") #later adjusted by organ status
 
 
 def add_detection(model) -> None:
@@ -223,7 +223,7 @@ def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     """
 
     treatment__outcomes_flows = [
-        ("treatment_recovery", 1.0, "recovered"),
+        ("treatment_recovery", 1.0, "recovered"), #later adjusted by organ
         ("relapse", 1.0, "infectious"),
     ]
 

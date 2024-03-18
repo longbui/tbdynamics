@@ -138,7 +138,7 @@ def calculate_treatment_outcomes(
 
     Returns:
     - tuple of float: A tuple containing the adjusted proportions of treatment success,
-      deaths from treatment (with a floor of zero), and relapse, each multiplied by the duration
+      deaths from treatment (with a floor of zero), and relapse, each divided by the duration
       of the treatment. These proportions are calculated after accounting for the natural death
       rate during treatment.
 
@@ -173,5 +173,5 @@ def calculate_treatment_outcomes(
     )
 
     return tuple(
-        [param * duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
+        [param / duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
     )

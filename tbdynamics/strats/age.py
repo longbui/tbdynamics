@@ -59,7 +59,7 @@ def get_age_strat(
             )
             for t in age_strata
         }
-        adjs = {str(k): Overwrite(v) for k, v in adjs.items()}
+        adjs = {k: Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)
 
     inf_switch_age = fixed_params["age_infectiousness_switch"]
@@ -106,13 +106,13 @@ def get_age_strat(
         {},
     )
     for age in age_strata:
-        death_rate = universal_death_funcs[age]
+        natural_death_rate = universal_death_funcs[age]
         treatment_outcomes = Function(
             calculate_treatment_outcomes,
             [
                 Parameter("treatment_duration"),
                 fixed_params["prop_death_among_negative_tx_outcome"],
-                death_rate,
+                natural_death_rate,
                 time_variant_tsr,
             ],
         )
