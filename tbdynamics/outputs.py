@@ -38,11 +38,11 @@ def request_model_outputs(
     # Calculate and request prevalence of pulmonary
     for organ_stratum in organ_strata:
         model.request_output_for_compartments(
-                f"infectious_size_X{organ_stratum}",
-                infectious_compartments,
-                strata={"organ": organ_stratum},
-                save_results=False,
-            )
+            f"infectious_size_X{organ_stratum}",
+            infectious_compartments,
+            strata={"organ": organ_stratum},
+            save_results=False,
+        )
     pulmonary_outputs = [
         f"infectious_size_X{organ_stratum}"
         for organ_stratum in ["smear_positive", "smear_negative"]
@@ -53,7 +53,7 @@ def request_model_outputs(
     model.request_function_output(
         "prevalence_pulmonary", 1e5 * pulmonary_pop_size / total_pop
     )
-    #total prevalence
+    # total prevalence
     infectious_pop_size = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
@@ -106,9 +106,7 @@ def request_model_outputs(
         )
 
 
-def request_cdr(
-    model,
-):
+def request_cdr(model):
     f = Function(
         tanh_based_scaleup,
         [

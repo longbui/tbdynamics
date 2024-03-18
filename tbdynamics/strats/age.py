@@ -9,7 +9,6 @@ from tbdynamics.utils import (
     calculate_treatment_outcomes,
     bcg_multiplier_func,
     get_average_age_for_bcg,
-    get_latency_with_diabetes,
 )
 from tbdynamics.constants import bcg_multiplier_dict
 
@@ -55,7 +54,7 @@ def get_age_strat(
             str(t): latency_params[max([k for k in latency_params if k <= t])]
             * (
                 Parameter("progression_multiplier")
-                if flow_name in  ["late_activation", "early_activation"]
+                if flow_name in ["late_activation", "early_activation"]
                 else 1
             )
             for t in age_strata

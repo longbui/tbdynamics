@@ -13,6 +13,17 @@ from tbdynamics.inputs import conmat
 
 
 def get_bcm(params) -> BayesianCompartmentalModel:
+    """
+    Constructs and returns a Bayesian Compartmental Model.
+    Parameters:
+    - params (dict): A dictionary containing fixed parameters for the model.
+
+    Returns:
+    - BayesianCompartmentalModel: An instance of the BayesianCompartmentalModel class, ready for
+      simulation and analysis. This model encapsulates the TB compartmental model, the dynamic
+      and fixed parameters, prior distributions for Bayesian inference, and target data for model
+      validation or calibration.
+    """
     fixed_params = load_params()
     tb_model = build_model(
         compartments,
@@ -53,11 +64,25 @@ def get_all_priors() -> list:
 
 
 def get_targets() -> list:
+    """
+    Loads target data for a model and constructs a list of NormalTarget instances.
+
+    This function is designed to load external target data, presumably for the purpose of
+    model calibration or validation. It then constructs and returns a list of NormalTarget
+    instances, each representing a specific target metric with associated observed values
+    and standard deviations. These targets are essential for fitting the model to observed
+    data, allowing for the estimation of model parameters that best align with real-world
+    observations.
+
+    Returns:
+    - list: A list of NormalTarget instances. Each NormalTarget specifies a model target
+      metric (e.g., total population, notification rates), the observed value for that
+      metric, and a standard deviation representing the uncertainty around the observed
+      value. The standard deviations are predefined and serve as a measure of variance
+      in the observed data.
+    """
     target_data = load_targets()
     return [
         est.NormalTarget("total_population", target_data["pop"], stdev=10000.0),
         est.NormalTarget("notification", target_data["notifs"], stdev=100.0),
-        est.NormalTarget(
-            "percentage_latent", target_data["percentage_latent"], stdev=1.0
-        )
     ]

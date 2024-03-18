@@ -6,7 +6,8 @@ def plot_model_vs_actual(
     actual_series: Series,
     modeled_column: str,
     y_axis_title: str,
-    plot_title: str, actual_color: str = "red"
+    plot_title: str,
+    actual_color: str = "red",
 ):
     """
     Plots a comparison between modeled data and actual data, where the actual data is provided as a Pandas Series.
@@ -27,7 +28,7 @@ def plot_model_vs_actual(
         mode="lines",
         name="Modeled Data",
     )
-    
+
     # Create a scatter plot for the actual data
     scatter_trace = go.Scatter(
         x=actual_series.index,
@@ -42,9 +43,10 @@ def plot_model_vs_actual(
 
     # Update the layout for the combined figure
     fig.update_layout(
-        title=plot_title, title_x=0.5,
+        title=plot_title,
+        title_x=0.5,
         xaxis_title="Year",  # X-axis title fixed as 'Year'
-        yaxis_title=y_axis_title
+        yaxis_title=y_axis_title,
     )
 
     # Show the figure
