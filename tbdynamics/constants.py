@@ -1,3 +1,4 @@
+from pathlib import Path
 organ_strata = [
     "smear_positive",
     "smear_negative",
@@ -31,3 +32,11 @@ bcg_multiplier_dict = {
     "50": 1.0,
     "70": 1.0,
 }
+
+PROJECT_PATH = Path(__file__).parent.parent.resolve()
+DATA_PATH = PROJECT_PATH / 'data'
+RUNS_PATH = PROJECT_PATH / 'runs'
+OUTPUTS_PATH = PROJECT_PATH / 'outputs'
+
+BURN_IN = 25000
+OPTI_DRAWS = 100

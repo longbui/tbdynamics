@@ -13,7 +13,7 @@ import numpy as np
 from tbdynamics.inputs import conmat
 
 
-def get_bcm(params) -> BayesianCompartmentalModel:
+def get_bcm(params=None) -> BayesianCompartmentalModel:
     """
     Constructs and returns a Bayesian Compartmental Model.
     Parameters:
@@ -25,6 +25,7 @@ def get_bcm(params) -> BayesianCompartmentalModel:
       and fixed parameters, prior distributions for Bayesian inference, and target data for model
       validation or calibration.
     """
+    params = params or {}
     fixed_params = load_params()
     tb_model = build_model(
         compartments,

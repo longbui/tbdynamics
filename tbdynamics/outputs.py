@@ -113,7 +113,7 @@ def request_cdr(model):
             Time,
             Parameter("screening_scaleup_shape"),
             Parameter("screening_inflection_time"),
-            Parameter("screening_start_asymp"),
+            0.,
             Parameter("screening_end_asymp"),
         ],
     )

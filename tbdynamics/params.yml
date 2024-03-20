@@ -17,6 +17,7 @@ age_latency:
     5: 4.383
     15: 1.972
 age_infectiousness_switch: 15.0
+treatment_duration: 0.5
 on_treatment_infect_multiplier: 0.08
 smear_positive_infect_multiplier: 1.0
 smear_negative_infect_multiplier: 0.25
