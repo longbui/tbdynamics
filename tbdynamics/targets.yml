@@ -1,8 +1,8 @@
 pop:
-  2009: 86025000
+  2009: 86025000 #from census
   2019: 96484000
 
-notifs:
+notifs: #from official report of NTP
   2010: 99022
   2011: 100518
   2012: 103906

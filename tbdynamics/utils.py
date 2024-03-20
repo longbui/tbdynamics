@@ -173,5 +173,5 @@ def calculate_treatment_outcomes(
     )
 
     return tuple(
-        [param / duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
+        [param * duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
     )

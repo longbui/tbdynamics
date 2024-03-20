@@ -9,6 +9,7 @@ from tbdynamics.constants import (
     latent_compartments,
     infectious_compartments,
 )
+import numpy as np
 from tbdynamics.inputs import conmat
 
 
@@ -49,7 +50,7 @@ def get_all_priors() -> list:
         esp.UniformPrior("contact_rate", (0.0001, 0.2)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
-        esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
+        esp.UniformPrior("progression_multiplier", (1.0, 5.0)),
         esp.UniformPrior("seed_time", (1890.0, 1950.0)),
         esp.UniformPrior("seed_num", (1.0, 100.00)),
         esp.UniformPrior("seed_duration", (1.0, 5.0)),
@@ -59,7 +60,7 @@ def get_all_priors() -> list:
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.07, 0.1)),
         esp.UniformPrior("screening_inflection_time", (1993, 2005)),
-        esp.UniformPrior("screening_end_asymp", (0.5, 0.65)),
+        esp.UniformPrior("screening_end_asymp", (0.5, 0.6)),
     ]
 
 
@@ -75,15 +76,11 @@ def get_targets() -> list:
     observations.
 
     Returns:
-    - list: A list of NormalTarget instances. Each NormalTarget specifies a model target
-      metric (e.g., total population, notification rates), the observed value for that
-      metric, and a standard deviation representing the uncertainty around the observed
-      value. The standard deviations are predefined and serve as a measure of variance
-      in the observed data.
+    - list: A list of Target instances.
     """
     target_data = load_targets()
     return [
         est.NormalTarget("total_population", target_data["pop"], stdev=10000.0),
         est.NormalTarget("notification", target_data["notifs"], stdev=100.0),
-        est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], stdev=10.0),
+        est.TruncatedNormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], (200.0,400.0), 1.0),
     ]
