@@ -17,22 +17,12 @@ from tbdynamics.calib_utils import get_bcm, get_all_priors, get_targets
 
 def calibrate(out_path, draws, tune):
     bcm = get_bcm()
-    
-    def get_acceptable_start_params():
-        params = []
-        return bcm.sample.convert(params)
-    
-    start_lhs = get_acceptable_start_params(8)
-    
-    def optimize_ng(idx_sample):
-        idx, sample = idx_sample
-        opt = eng.optimize_model(bcm, budget=OPTI_DRAWS, opt_class=ng.optimizers.TwoPointsDE, obj_function=bcm.logposterior, suggested=sample, num_workers=4, ci=CI)
+    def optimize_ng():
+        opt = eng.optimize_model(bcm, budget=OPTI_DRAWS, opt_class=ng.optimizers.TwoPointsDE, obj_function=bcm.logposterior, num_workers=4)
         rec = opt.minimize(OPTI_DRAWS)
-        return idx, rec.value[1]
+        return rec.value[1]
 
-    opt_samples = map_parallel(optimize_ng, start_lhs.iterrows(), n_workers=2, mode='process')
-    opt_samples = bcm.sample.convert(opt_samples).iloc[0: 8].convert('list_of_dicts')
-    
+    opt_samples = optimize_ng()
     n_chains = 8
     n_samples = 100
     with pm.Model() as pm_model:
@@ -42,8 +32,6 @@ def calibrate(out_path, draws, tune):
     
     burnt_idata = idata_raw.sel(draw=np.s_[BURN_IN:])
     idata_extract = az.extract(burnt_idata, num_samples=n_samples)
-    
-    bcm.sample.convert(idata_extract).to_hdf5(out_path / 'calib_extract_out.h5')
     
     spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
     spaghetti_res.results.to_hdf(str(out_path / 'results.hdf'), 'spaghetti')
