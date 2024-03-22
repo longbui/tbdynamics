@@ -83,5 +83,6 @@ def get_targets() -> list:
     return [
         est.NormalTarget("total_population", target_data["pop"], stdev=10000.0),
         est.NormalTarget("notification", target_data["notifs"], stdev=100.0),
+        est.TruncatedNormalTarget("percentage_latent", target_data["percentage_latent"], (0.0,50.0), 1.0),
         est.TruncatedNormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], (200.0,400.0), 1.0),
     ]

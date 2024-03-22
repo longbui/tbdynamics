@@ -34,5 +34,5 @@ bcg_multiplier_dict = {
 }
 
 
-BURN_IN = 25000
+BURN_IN = 5000
 OPTI_DRAWS = 1000
