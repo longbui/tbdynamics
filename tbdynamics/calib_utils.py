@@ -21,7 +21,7 @@ from tbdynamics.constants import (
 )
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig, get_target_from_name, round_sigfig
 from tbdynamics.constants import PLOT_START_DATE, PLOT_END_DATE, indicator_names
-pio.templates.default = "plotly_white"
+pio.templates.default = "simple_white"
 
 
 
@@ -177,31 +177,5 @@ def plot_output_ranges(
     fig.update_xaxes(range=[PLOT_START_DATE, PLOT_END_DATE])
     return fig.update_layout(yaxis4={'range': [0.0, 2.5]}, showlegend=False)
 
-def tabulate_calib_results(
-    idata: az.data.inference_data.InferenceData, 
-    priors: list, 
-    param_info: pd.DataFrame, 
-) -> pd.DataFrame:
-    """
-    Get tabular outputs from calibration inference object, 
-    except for the dispersion parameters, and standardise formatting.
-
-    Args:
-        uncertainty_outputs: Outputs from calibration
-        priors: Model priors
-        param_descriptions: Short names for parameters used in model
-
-    Returns:
-        Calibration results table in standard format
-    """
-    table = az.summary(idata)
-    table = table[~table.index.str.contains('_dispersion')]
-    table.index = [param_info['descriptions'][p.name] for p in priors]
-    for col_to_round in ['mean', 'sd', 'hdi_3%', 'hdi_97%', 'ess_bulk', 'ess_tail', 'r_hat']:
-        table[col_to_round] = table.apply(lambda x: str(round_sigfig(x[col_to_round], 3)), axis=1)
-    table['hdi'] = table.apply(lambda x: f'{x["hdi_3%"]} to {x["hdi_97%"]}', axis=1)    
-    table = table.drop(['mcse_mean', 'mcse_sd', 'hdi_3%', 'hdi_97%'], axis=1)
-    table.columns = ['Mean', 'Standard deviation', 'ESS bulk', 'ESS tail', '\\textit{\^{R}}', 'High-density interval']
-    return table
 
 
