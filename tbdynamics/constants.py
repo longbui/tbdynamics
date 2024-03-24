@@ -34,5 +34,16 @@ bcg_multiplier_dict = {
 }
 
 
-BURN_IN = 5000
+BURN_IN = 25000
 OPTI_DRAWS = 1000
+
+PLOT_START_DATE = 1800
+PLOT_END_DATE = 2023
+
+indicator_names = {
+        'total_population': 'Total Population',
+        'notification': 'Notification',
+        'incidence': 'Incidence',
+        'percentage_latent': 'Percentage Latent',
+        'prevalence_pulmonary': 'Prevalence Pulmonary'
+    }

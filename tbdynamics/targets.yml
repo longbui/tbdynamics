@@ -1,8 +1,7 @@
-pop:
+total_population:
   2019: 96484000
 
-notifs: #from official report of NTP
-  #1987: 8737
+notification: #from official report of NTP
   2010: 99022
   2011: 100518
   2012: 103906

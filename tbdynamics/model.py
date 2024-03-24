@@ -6,7 +6,7 @@ from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
-from .inputs import get_birth_rate, get_death_rate, process_death_rate, get_immigration
+from .inputs import get_birth_rate, get_death_rate, process_death_rate
 from .constants import organ_strata
 from .outputs import request_model_outputs, request_cdr
 from .strats import get_age_strat, get_organ_strat

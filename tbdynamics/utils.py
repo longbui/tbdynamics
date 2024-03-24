@@ -2,6 +2,10 @@ from math import log, exp
 from jax import numpy as jnp
 import numpy as np
 from pathlib import Path
+import pandas as pd
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+from typing import List
 
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
@@ -175,3 +179,60 @@ def calculate_treatment_outcomes(
     return tuple(
         [param * duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
     )
+
+def round_sigfig(
+    value: float, 
+    sig_figs: int
+) -> float:
+    """
+    Round a number to a certain number of significant figures, 
+    rather than decimal places.
+    
+    Args:
+        value: Number to round
+        sig_figs: Number of significant figures to round to
+    """
+    if np.isinf(value):
+        return 'infinity'
+    else:
+        return round(value, -int(np.floor(np.log10(value))) + (sig_figs - 1)) if value != 0.0 else 0.0
+    
+def get_target_from_name(
+    targets: list, 
+    name: str,
+) -> pd.Series:
+    """Get the data for a specific target from a set of targets from its name.
+
+    Args:
+        targets: All the targets
+        name: The name of the desired target
+
+    Returns:
+        Single target to identify
+    """
+    return next((t.data for t in targets if t.name == name), None)
+
+def get_row_col_for_subplots(i_panel, n_cols):
+    return int(np.floor(i_panel / n_cols)) + 1, i_panel % n_cols + 1
+
+
+def get_standard_subplot_fig(
+    n_rows: int, 
+    n_cols: int, 
+    titles: List[str],
+    share_y: bool=False,
+) -> go.Figure:
+    """Start a plotly figure with subplots off from standard formatting.
+
+    Args:
+        n_rows: Argument to pass through to make_subplots
+        n_cols: Pass through
+        titles: Pass through
+
+    Returns:
+        Figure with nothing plotted
+    """
+    heights = [320, 600, 680]
+    height = 680 if n_rows > 3 else heights[n_rows - 1]
+    fig = make_subplots(n_rows, n_cols, subplot_titles=titles, vertical_spacing=0.08, horizontal_spacing=0.05, shared_yaxes=share_y)
+    return fig.update_layout(margin={i: 25 for i in ['t', 'b', 'l', 'r']}, height=height)
