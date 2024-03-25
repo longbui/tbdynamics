@@ -1,5 +1,4 @@
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from typing import List
 from pandas import DataFrame, Series
 import numpy as np
