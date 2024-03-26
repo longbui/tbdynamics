@@ -41,9 +41,9 @@ PLOT_START_DATE = 1800
 PLOT_END_DATE = 2023
 
 indicator_names = {
-        'total_population': 'Total Population',
-        'notification': 'Notification',
-        'incidence': 'Incidence',
-        'percentage_latent': 'Percentage Latent',
-        'prevalence_pulmonary': 'Prevalence Pulmonary'
+        'total_population': 'Population',
+        'notification': 'Notification (Total)',
+        'incidence': 'Incidence (per 100.000)',
+        'percentage_latent': 'Percentage Latent (%)',
+        'prevalence_pulmonary': 'Prevalence Pulmonary (per 100.000)'
     }
