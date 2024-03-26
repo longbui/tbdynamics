@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-from plotly.subplots import make_subplots
+
 import plotly.io as pio
 from typing import List, Dict
 from tbdynamics.model import build_model
@@ -19,7 +19,7 @@ from tbdynamics.constants import (
     infectious_compartments,
     indicator_names
 )
-from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig, get_target_from_name, round_sigfig
+from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig, get_target_from_name
 from tbdynamics.constants import PLOT_START_DATE, PLOT_END_DATE, indicator_names
 pio.templates.default = "plotly_white"
 
