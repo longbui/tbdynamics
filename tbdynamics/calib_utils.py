@@ -67,14 +67,14 @@ def get_all_priors() -> list:
         esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
         # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
         # esp.UniformPrior("seed_num", (1.0, 100.00)),
-        # esp.UniformPrior("seed_duration", (1.0, 5.0)),
+        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
         esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
         esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
         esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
-        # esp.UniformPrior("screening_scaleup_shape", (0.07, 0.1)),
-        # esp.UniformPrior("screening_inflection_time", (1993, 2005)),
-        # esp.UniformPrior("screening_end_asymp", (0.5, 0.60)),
+        esp.UniformPrior("screening_scaleup_shape", (0.07, 0.1)),
+        esp.UniformPrior("screening_inflection_time", (1990, 2005)),
+        esp.UniformPrior("screening_end_asymp", (0.55, 0.62)),
     ]
 
 
@@ -96,9 +96,9 @@ def get_targets() -> list:
     return [
         est.NormalTarget("total_population", target_data["total_population"], stdev=10000.0),
         est.NormalTarget("notification", target_data["notification"], stdev=10.0),
-        est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
-        est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
-        est.NormalTarget("incidence", target_data["incidence"], 1.0)
+        # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
+        # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
+        # est.NormalTarget("incidence", target_data["incidence"], 1.0)
     ]
 
 def plot_spaghetti(
