@@ -34,8 +34,8 @@ bcg_multiplier_dict = {
 }
 
 
-BURN_IN = 25000
-OPTI_DRAWS = 1000
+BURN_IN = 50000
+OPTI_DRAWS = 100
 
 PLOT_START_DATE = 1800
 PLOT_END_DATE = 2023
@@ -45,5 +45,6 @@ indicator_names = {
         'notification': 'Notification (Total)',
         'incidence': 'Incidence (per 100,000)',
         'percentage_latent': 'Percentage Latent (%)',
-        'prevalence_pulmonary': 'Prevalence Pulmonary (per 100,000)'
+        'prevalence_pulmonary': 'Prevalence Pulmonary (per 100,000)',
+        'cdr': 'Case detection profile'
     }

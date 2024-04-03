@@ -1,8 +1,6 @@
 import plotly.graph_objects as go
-from typing import List
 from pandas import DataFrame, Series
-import numpy as np
-import matplotlib as plt
+
 
 def plot_model_vs_actual(
     modeled_df: DataFrame,
