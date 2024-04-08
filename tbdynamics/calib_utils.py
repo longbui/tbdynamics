@@ -20,7 +20,7 @@ from tbdynamics.constants import (
     indicator_names
 )
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig, get_target_from_name, round_sigfig
-from tbdynamics.constants import PLOT_START_DATE, PLOT_END_DATE, indicator_names
+from tbdynamics.constants import indicator_names
 pio.templates.default = "simple_white"
 
 
