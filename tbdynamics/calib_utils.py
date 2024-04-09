@@ -53,32 +53,33 @@ def get_bcm(params=None) -> BayesianCompartmentalModel:
     return BayesianCompartmentalModel(tb_model, params, priors, targets)
 
 
-def get_all_priors() -> list:
+def get_all_priors() -> List:
     """Get all priors used in any of the analysis types.
 
     Returns:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
+        # esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("contact_rate", (0.005, 0.015)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
         esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
-        esp.UniformPrior("seed_time", (1800.0, 1840.0)),
-        esp.UniformPrior("seed_num", (1.0, 100.00)),
-        esp.UniformPrior("seed_duration", (1.0, 20.0)),
+        # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
+        # esp.UniformPrior("seed_num", (1.0, 100.00)),
+        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
         esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
         esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
         esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        esp.UniformPrior("screening_end_asymp", (0.55, 0.63)),
+        esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
+        esp.UniformPrior("detection_reduction", (0.7, 0.85)),
     ]
 
 
-def get_targets() -> list:
+def get_targets() -> List:
     """
     Loads target data for a model and constructs a list of NormalTarget instances.
 
@@ -95,10 +96,10 @@ def get_targets() -> list:
     target_data = load_targets()
     return [
         est.NormalTarget("total_population", target_data["total_population"], stdev=10000.0),
+        # est.NormalTarget("incidence", target_data["incidence"], 1.0),
         est.NormalTarget("notification", target_data["notification"], stdev=10.0),
-        est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
+        # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
         est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
-        est.NormalTarget("incidence", target_data["incidence"], 1.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)
     ]
 

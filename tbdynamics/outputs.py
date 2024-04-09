@@ -1,8 +1,9 @@
 from summer2 import CompartmentalModel
 from typing import List
-from summer2.functions.time import get_sigmoidal_interpolation_function
+from summer2.functions.time import get_piecewise_function
 from summer2.parameters import Function, Parameter, Time
 from tbdynamics.utils import tanh_based_scaleup
+import numpy as np
 
 
 def request_model_outputs(
@@ -107,16 +108,19 @@ def request_model_outputs(
 
 
 def request_cdr(model):
-    f = Function(
+    detection_func = Function(
         tanh_based_scaleup,
         [
             Time,
             Parameter("screening_scaleup_shape"),
             Parameter("screening_inflection_time"),
-            0.,
+            0.0,
             Parameter("screening_end_asymp"),
         ],
     )
+    detection_covid_reduction = get_piecewise_function(
+        np.array((2021, 2022)), [detection_func, detection_func * Parameter("detection_reduction"), detection_func]
+    )
 
-    model.add_computed_value_func("cdr", f)
+    model.add_computed_value_func("cdr", detection_covid_reduction)
     model.request_computed_value_output("cdr")

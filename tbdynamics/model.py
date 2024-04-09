@@ -1,8 +1,8 @@
 from pathlib import Path
+import numpy as np
 from typing import List, Dict
-import pandas as pd
 from summer2 import CompartmentalModel
-from summer2.functions.time import get_sigmoidal_interpolation_function
+from summer2.functions.time import get_sigmoidal_interpolation_function, get_linear_interpolation_function
 from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
@@ -136,7 +136,7 @@ def add_infection_flow(model: CompartmentalModel):
             "recovered",
             "rr_infection_recovered",
         ),
-    ]
+    ]      
     for origin, modifier in infection_flows:
         process = f"infection_from_{origin}"
         modifier = Parameter(modifier) if modifier else 1.0
@@ -201,9 +201,6 @@ def add_detection(model) -> None:
     """
     Adds a detection flow to the model, transitioning individuals from the 'infectious'
     compartment to the 'on_treatment' compartment based on a dynamically calculated detection rate.
-    The detection rate is determined using a sigmoidal interpolation function based on parameters
-    specified in `fixed_params`. This flow simulates the identification and diagnosis of infectious
-    individuals, leading to their treatment.
 
     Args:
         model: The compartmental model to which the detection flow is to be added.
@@ -212,7 +209,7 @@ def add_detection(model) -> None:
     """
 
     # Adding a transition flow named 'detection' to the model
-    model.add_transition_flow("detection", 1.0, "infectious", "on_treatment")
+    model.add_transition_flow("detection", 1.0, "infectious", "on_treatment") # will be adjusted later
 
 
 def add_treatment_related_outcomes(model: CompartmentalModel) -> None:

@@ -2,7 +2,9 @@ from typing import List, Dict
 from summer2 import Stratification
 from summer2 import Overwrite, Multiply
 from summer2.parameters import Parameter, Function, Time
-from tbdynamics.utils import tanh_based_scaleup
+from summer2.functions.time import get_piecewise_function
+from tbdynamics.utils import tanh_based_scaleup, calculate_cdr_adjustments
+import numpy as np
 
 
 def get_organ_strat(
@@ -27,7 +29,9 @@ def get_organ_strat(
         A Stratification object configured with organ-specific adjustments.
     """
     strat = Stratification("organ", organ_strata, infectious_compartments)
-    strat.set_population_split({'smear_positive': 0.5, 'smear_negative': 0.25, 'extrapulmonary': 0.25})
+    strat.set_population_split(
+        {"smear_positive": 0.5, "smear_negative": 0.25, "extrapulmonary": 0.25}
+    )
 
     # Define infectiousness adjustment by organ status
     inf_adj = {
@@ -59,22 +63,33 @@ def get_organ_strat(
     }
     strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
 
-     # Define different detection rates by organ status.
+    # Define different detection rates by organ status.
     detection_adjs = {}
+    detection_func = Function(
+        tanh_based_scaleup,
+        [
+            Time,
+            Parameter("screening_scaleup_shape"),
+            Parameter("screening_inflection_time"),
+            0.0,
+            Parameter("screening_end_asymp"),
+        ],
+    )
+    detection_covid_reduction = get_piecewise_function(
+        np.array((2021, 2022)), [detection_func, detection_func * Parameter("detection_reduction"), detection_func]
+    )
     for organ_stratum in organ_strata:
-        param_name = f"passive_screening_sensitivity_{organ_stratum}"
-        detection_adjs[organ_stratum] = (
-            Function(
-                tanh_based_scaleup,
-                [
-                    Time,
-                    Parameter("screening_scaleup_shape"),
-                    Parameter("screening_inflection_time"),
-                    0.,
-                    Parameter("screening_end_asymp"),
-                ],
-            )
-            * fixed_params[param_name]
+        detection_adjs[organ_stratum] = Function(
+            calculate_cdr_adjustments,
+            [
+                detection_covid_reduction,
+                Parameter(
+                    f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_death_rate"
+                ),
+                Parameter(
+                    f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_self_recovery"
+                ),
+            ],
         )
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
