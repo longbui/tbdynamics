@@ -79,18 +79,8 @@ def get_organ_strat(
         np.array((2021, 2022)), [detection_func, detection_func * Parameter("detection_reduction"), detection_func]
     )
     for organ_stratum in organ_strata:
-        detection_adjs[organ_stratum] = Function(
-            calculate_cdr_adjustments,
-            [
-                detection_covid_reduction,
-                Parameter(
-                    f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_death_rate"
-                ),
-                Parameter(
-                    f"{organ_stratum if organ_stratum == 'smear_positive' else 'smear_negative'}_self_recovery"
-                ),
-            ],
-        )
+        param_name = f"passive_screening_sensitivity_{organ_stratum}"
+        detection_adjs[organ_stratum] = detection_covid_reduction * fixed_params[param_name]
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)
