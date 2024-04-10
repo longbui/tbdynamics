@@ -19,7 +19,7 @@ from tbdynamics.constants import (
     infectious_compartments,
     indicator_names
 )
-from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig, get_target_from_name, round_sigfig
+from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names
 pio.templates.default = "simple_white"
 
@@ -99,7 +99,7 @@ def get_targets() -> List:
         # est.NormalTarget("incidence", target_data["incidence"], 1.0),
         est.NormalTarget("notification", target_data["notification"], stdev=10.0),
         # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
-        est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
+        # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)
     ]
 
