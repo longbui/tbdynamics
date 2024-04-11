@@ -1,6 +1,6 @@
 from summer2 import CompartmentalModel
 from typing import List
-from summer2.functions.time import get_piecewise_function
+from summer2.functions.time import get_piecewise_function, get_linear_interpolation_function
 from summer2.parameters import Function, Parameter, Time
 from tbdynamics.utils import tanh_based_scaleup
 import numpy as np
@@ -118,9 +118,8 @@ def request_cdr(model):
             Parameter("screening_end_asymp"),
         ],
     )
-    detection_covid_reduction = get_piecewise_function(
-        np.array((2021, 2022)), [detection_func, detection_func * Parameter("detection_reduction"), detection_func]
-    )
+    detection_covid_reduction = get_linear_interpolation_function([2020, 2021, 2021.9], [1.0, Parameter("detection_reduction"),1.0])
+    cdr_covid_adjusted = get_piecewise_function([2020, 2022], [detection_func, detection_func * detection_covid_reduction, detection_func])
 
-    model.add_computed_value_func("cdr", detection_covid_reduction)
+    model.add_computed_value_func("cdr", cdr_covid_adjusted)
     model.request_computed_value_output("cdr")

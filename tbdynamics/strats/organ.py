@@ -2,8 +2,8 @@ from typing import List, Dict
 from summer2 import Stratification
 from summer2 import Overwrite, Multiply
 from summer2.parameters import Parameter, Function, Time
-from summer2.functions.time import get_piecewise_function
-from tbdynamics.utils import tanh_based_scaleup, calculate_cdr_adjustments
+from summer2.functions.time import get_piecewise_function, get_linear_interpolation_function
+from tbdynamics.utils import tanh_based_scaleup
 import numpy as np
 
 
@@ -75,12 +75,11 @@ def get_organ_strat(
             Parameter("screening_end_asymp"),
         ],
     )
-    detection_covid_reduction = get_piecewise_function(
-        np.array((2021, 2022)), [detection_func, detection_func * Parameter("detection_reduction"), detection_func]
-    )
+    detection_covid_reduction = get_linear_interpolation_function([2020, 2021, 2021.9], [1.0, Parameter("detection_reduction"),1.0])
+    cdr_covid_adjusted = get_piecewise_function([2020, 2022], [detection_func, detection_func * detection_covid_reduction, detection_func])
     for organ_stratum in organ_strata:
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
-        detection_adjs[organ_stratum] = detection_covid_reduction * fixed_params[param_name]
+        detection_adjs[organ_stratum] = cdr_covid_adjusted * fixed_params[param_name]
 
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
     strat.set_flow_adjustments("detection", detection_adjs)

@@ -64,7 +64,7 @@ def get_all_priors() -> List:
         esp.UniformPrior("contact_rate", (0.005, 0.015)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
-        esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
+        # esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
         # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
         # esp.UniformPrior("seed_num", (1.0, 100.00)),
         # esp.UniformPrior("seed_duration", (1.0, 20.0)),
@@ -75,7 +75,7 @@ def get_all_priors() -> List:
         # esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         # esp.UniformPrior("screening_inflection_time", (1990, 2010)),
         # esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
-        esp.UniformPrior("detection_reduction", (0.8, 0.9)),
+        esp.UniformPrior("detection_reduction", (0.7, 0.9)),
     ]
 
 
