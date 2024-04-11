@@ -8,10 +8,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "3.10"
-ipython = ">=7.23.1"
+ipython = "8.12.3"
 summerepi2 = "1.3.4"
 estival = "0.4.9"
-tables = ">=3"
+tables = "3.8.0"
 jax = "0.4.24"
 jaxlib = "0.4.24"
 arviz = "0.17.0"
