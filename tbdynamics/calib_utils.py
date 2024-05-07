@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import matplotlib as plt
+from numpyro import distributions as dist
 
 import plotly.io as pio
 from typing import List, Dict
@@ -58,22 +60,22 @@ def get_all_priors() -> List:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("contact_rate", (0.003, 0.015)),
-        esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
+        esp.UniformPrior("contact_rate", (0.001, 0.01)),
+        # esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
-        esp.UniformPrior("progression_multiplier", (1.5, 2.0)),
-        esp.UniformPrior("seed_time", (1800.0, 1840.0)),
-        esp.UniformPrior("seed_num", (1.0, 100.00)),
-        esp.UniformPrior("seed_duration", (1.0, 20.0)),
+        esp.UniformPrior("progression_multiplier", (1.0, 10.0)),
+        # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
+        # esp.UniformPrior("seed_num", (1.0, 100.00)),
+        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
         esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
         esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
         esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
-        esp.UniformPrior("detection_reduction", (0.6, 0.95)),
+        esp.UniformPrior("screening_end_asymp", (0.5, 0.9)),
+        esp.UniformPrior("detection_reduction", (0.5, 0.9)),
     ]
 
 
@@ -95,7 +97,7 @@ def get_targets() -> List:
     return [
         est.NormalTarget("total_population", target_data["total_population"], stdev=100000.0),
         # est.NormalTarget("incidence", target_data["incidence"], 1.0),
-        est.NormalTarget("notification", target_data["notification"], stdev=2000.0),
+        est.NormalTarget("notification", target_data["notification"], stdev=10000.0),
         # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
         # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)
@@ -181,3 +183,51 @@ def plot_output_ranges(
             fig.add_traces(go.Scatter(x=target.index, y=target, mode='markers', marker=marker_format), rows=row, cols=col)
     fig.update_xaxes(range=[plot_start_date, plot_end_date])
     return fig.update_layout(yaxis4={'range': [0.0, 2.5]}, showlegend=False)
+
+def convert_priors_to_numpyro(priors_dict):
+    """
+    Converts a dictionary of prior instances to a list of Numpyro distributions.
+
+    Args:
+        priors_dict (dict): A dictionary where keys are names and values are prior instances.
+
+    Returns:
+        list: A list of Numpyro distribution objects.
+    """
+    numpyro_distributions = []
+    for name, prior in priors_dict.items():
+        if isinstance(prior, esp.UniformPrior):
+            numpyro_dist = dist.Uniform(low=prior.start, high=prior.end)
+        elif isinstance(prior, esp.TruncNormalPrior):
+            numpyro_dist = dist.TruncatedNormal(loc=prior.mean, scale=prior.stdev, low=prior.trunc_range[0], high=prior.trunc_range[1])
+        else:
+            raise TypeError(f"Unsupported prior type: {type(prior).__name__}")
+
+        numpyro_distributions.append(numpyro_dist)
+
+    return numpyro_distributions
+
+
+def plot_post_prior_comparison(
+    idata: az.InferenceData, 
+    req_vars: List[str], 
+    priors: List[dist.Distribution],
+) -> plt.figure:
+    """Plot comparison of model posterior outputs against priors.
+
+    Args:
+        idata: Arviz inference data from calibration
+        req_vars: User-requested variables to plot
+        priors: Numpyro prior objects
+
+    Returns:
+        The figure object
+    """
+    plot = az.plot_density(idata, var_names=req_vars, shade=0.3, grid=[1, len(req_vars)])
+    for i_ax, ax in enumerate(plot.ravel()):
+        ax_limits = ax.get_xlim()
+        x_vals = np.linspace(*ax_limits, 50)
+        y_vals = np.exp(priors[req_vars[i_ax]].log_prob(x_vals))
+        y_vals *= ax.get_ylim()[1] / max(y_vals)
+        ax.fill_between(x_vals, y_vals, color="k", alpha=0.2, linewidth=2)
+    return plot
