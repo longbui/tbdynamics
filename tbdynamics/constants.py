@@ -34,7 +34,7 @@ bcg_multiplier_dict = {
 }
 
 
-BURN_IN = 25000
+BURN_IN = 50000
 OPTI_DRAWS = 100
 
 PLOT_START_DATE = 1800
