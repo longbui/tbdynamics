@@ -35,6 +35,11 @@ def request_model_outputs(
     model.request_function_output(
         "percentage_latent", 100.0 * DerivedOutput("latent_population_size") / DerivedOutput("total_population")
     )
+    #Death
+    model.request_output_for_flow("mortality_infectious_raw", "infect_death", save_results=False)
+    model.request_output_for_flow("mortality_on_treatment_raw", "treatment_death", save_results=False)
+    model.request_aggregate_output("mortality_raw", ["mortality_infectious_raw", "mortality_on_treatment_raw"])
+    model.request_function_output("mortality", 1e5 * DerivedOutput("mortality_raw") / DerivedOutput("total_population"))
 
     # Calculate and request prevalence of pulmonary
     for organ_stratum in organ_strata:
@@ -96,15 +101,15 @@ def request_model_outputs(
             compartments,
             strata={"age": str(age_stratum)},
         )
-    # for organ_stratum in organ_strata:
-    #     model.request_output_for_compartments(
-    #         f"total_populationXorgan_{organ_stratum}",
-    #         compartments,
-    #         strata={"organ": str(organ_stratum)},
-    #     )
-    #     model.request_function_output(
-    #         f"prop_{organ_stratum}", DerivedOutput(f"total_populationXorgan_{organ_stratum}") / DerivedOutput("infectious_population_size")
-    #     )
+    for organ_stratum in organ_strata:
+        model.request_output_for_compartments(
+            f"total_populationXorgan_{organ_stratum}",
+            compartments,
+            strata={"organ": str(organ_stratum)},
+        )
+        model.request_function_output(
+            f"prop_{organ_stratum}", DerivedOutput(f"total_populationXorgan_{organ_stratum}") / DerivedOutput("infectious_population_size")
+        )
 
 
 def request_cdr(model):

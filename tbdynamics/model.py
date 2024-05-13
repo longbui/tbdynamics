@@ -218,13 +218,13 @@ def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     they may be adjusted later based on specific factors such as organ involved or patient age.
     """
 
-    treatment__outcomes_flows = [
+    treatment_outcomes_flows = [
         ("treatment_recovery", 1.0, "recovered"), #later adjusted by organ
         ("relapse", 1.0, "infectious"),
     ]
 
     # Add each transition flow defined in treatment_flows
-    for flow_name, rate, to_compartment in treatment__outcomes_flows:
+    for flow_name, rate, to_compartment in treatment_outcomes_flows:
         model.add_transition_flow(
             flow_name,
             rate,  # Directly using the rate for now

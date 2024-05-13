@@ -24,7 +24,7 @@ smear_negative_infect_multiplier: 0.25
 extrapulmonary_infect_multiplier: 0.
 incidence_props_pulmonary: 0.85
 incidence_props_smear_positive_among_pulmonary: 0.75
-prop_death_among_negative_tx_outcome: 0.2
+prop_death_among_negative_tx_outcome: 0.02
 time_variant_bcg_perc:
   1984: 0.
   1990: 49.
@@ -109,13 +109,4 @@ time_variant_tsr:
 passive_screening_sensitivity_extrapulmonary: 0.5
 passive_screening_sensitivity_smear_negative: 0.7
 passive_screening_sensitivity_smear_positive: 1.0
-
-inflate_reactivation_for_diabetes: True
-prop_diabetes:
-  0: 0.01
-  5: 0.05
-  15: 0.1
-  35: 0.2
-  50: 0.3
-  70: 0.5
 

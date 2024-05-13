@@ -59,13 +59,13 @@ def get_all_priors() -> List:
     """
     return [
         esp.UniformPrior("contact_rate", (0.003, 0.015)),
-        # esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
+        esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
         esp.GammaPrior.from_mean("progression_multiplier", 1.0, 2.0),
-        # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
-        # esp.UniformPrior("seed_num", (1.0, 100.00)),
-        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
+        esp.UniformPrior("seed_time", (1800.0, 1840.0)),
+        esp.UniformPrior("seed_num", (1.0, 100.00)),
+        esp.UniformPrior("seed_duration", (1.0, 20.0)),
         esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
         esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
         esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
@@ -99,6 +99,7 @@ def get_targets() -> List:
         # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
         # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)
+        # est.NormalTarget("mortality_raw", target_data["mortality_raw"], stdev=1000.0),
     ]
 
 def plot_spaghetti(

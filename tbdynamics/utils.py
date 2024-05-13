@@ -180,6 +180,52 @@ def calculate_treatment_outcomes(
         [param * duration for param in [tsr, prop_death_from_treatment, relapse_prop]]
     )
 
+# def calculate_treatment_outcomes(
+#     duration, prop_death_among_non_success, natural_death_rate, time_variant_tsr
+# ):
+#     """
+#     Calculates the adjusted proportions of treatment outcomes over a specified duration,
+#     considering the natural death rate and predefined treatment success rate (TSR).
+
+#     This function determines the proportions of individuals who complete treatment successfully,
+#     die from the treatment, relapse after treatment, or die from natural causes while undergoing
+#     treatment, adjusted for the specified duration of treatment.
+
+#     Parameters:
+#     - duration (float): The duration of the treatment period, in the same time units as the
+#       natural_death_rate (e.g., years).
+#     - prop_death_among_non_success (float): The proportion of non-successful treatment outcomes
+#       that result in death due to the treatment, excluding natural deaths.
+#     - natural_death_rate (float): The annual rate of natural death, applied to the population
+#       under treatment.
+#     - tsr (float): The target success rate of the treatment, defined as the proportion of
+#       treatment episodes resulting in success.
+
+#     Returns:
+#     - tuple of float: A tuple containing the adjusted proportions of treatment success,
+#       deaths from treatment (with a floor of zero), and relapse, each divided by the duration
+#       of the treatment. These proportions are calculated after accounting for the natural death
+#       rate during treatment.
+
+#     Notes:
+#     - The function assumes exponential decay for calculating the proportion of natural deaths
+#       during treatment, which is a common model for time-to-event data.
+#     - The function ensures that the calculated death from treatment cannot be negative, by
+#       setting a floor of zero.
+#     """
+#     # Calculate the proportion of people dying from natural causes while on treatment
+
+#     treatment_recovery_rate = jnp.max(
+#         1 / duration,
+#         natural_death_rate / prop_death_among_non_success * (1.0 / (1.0 - time_variant_tsr) - 1.0),
+#     )
+
+#     # Calculate the target proportion of treatment outcomes resulting in death based on requests
+#     treatment_death_rate = prop_death_among_non_success * treatment_recovery_rate * (1.0-time_variant_tsr)/time_variant_tsr-natural_death_rate
+#     # Calculate the actual rate of deaths on treatment, with floor of zero
+#     treatment_relapse_rate = treatment_recovery_rate * (1.0/time_variant_tsr - 1.0) * (1.0 - prop_death_among_non_success)
+#     return treatment_recovery_rate, treatment_death_rate, treatment_relapse_rate
+
 def round_sigfig(
     value: float, 
     sig_figs: int
@@ -196,7 +242,7 @@ def round_sigfig(
         return 'infinity'
     else:
         return round(value, -int(np.floor(np.log10(value))) + (sig_figs - 1)) if value != 0.0 else 0.0
-    
+
 def get_target_from_name(
     targets: list, 
     name: str,

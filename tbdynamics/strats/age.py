@@ -100,7 +100,7 @@ def get_age_strat(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-    treatment_relapse_funcs, treatment_death_funcs, treatment_recovery_funcs = (
+    treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
         {},
         {},
         {},

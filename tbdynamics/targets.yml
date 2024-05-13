@@ -29,6 +29,9 @@ percentage_latent:
 prevalence_pulmonary: 
   2017: 322.0
 
+mortality_raw:
+  2018: 13850
+
 cdr: 
   2000: 0.38
   2001: 0.39
