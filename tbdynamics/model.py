@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 from typing import List, Dict
 from summer2 import CompartmentalModel
-from summer2.functions.time import get_sigmoidal_interpolation_function, get_linear_interpolation_function
+from summer2.functions.time import get_sigmoidal_interpolation_function
 from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
@@ -58,10 +58,10 @@ def build_model(
     add_natural_death_flow(model)
     add_infection_flow(model)
     add_latency_flow(model)
-    add_infect_death_flow(model)
     add_self_recovery_flow(model)
     add_detection(model)
     add_treatment_related_outcomes(model)
+    add_infect_death_flow(model)
     stratify_model_by_age(
         model,
         compartments,
@@ -193,7 +193,7 @@ def add_infect_death_flow(model: CompartmentalModel) -> None:
     Args:
         model: The compartmental model to which the infect-death flow is to be added.
     """
-    model.add_death_flow("infect_death", 1.0, "infectious") #later adjusted by organ status
+    model.add_death_flow("infect_death", 0.2, "infectious") #later adjusted by organ status
 
 
 def add_detection(model) -> None:
@@ -219,7 +219,7 @@ def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     """
 
     treatment_outcomes_flows = [
-        ("treatment_recovery", 1.0, "recovered"), #later adjusted by organ
+        ("treatment_recovery", 1.0, "recovered"), #later adjusted by age
         ("relapse", 1.0, "infectious"),
     ]
 

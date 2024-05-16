@@ -24,7 +24,7 @@ smear_negative_infect_multiplier: 0.25
 extrapulmonary_infect_multiplier: 0.
 incidence_props_pulmonary: 0.85
 incidence_props_smear_positive_among_pulmonary: 0.75
-prop_death_among_negative_tx_outcome: 0.02
+prop_death_among_negative_tx_outcome: 0.05
 time_variant_bcg_perc:
   1984: 0.
   1990: 49.
@@ -84,7 +84,7 @@ detection_rate: # from world bank data
   2022: 0.59
 
 time_variant_tsr:
-  1986: 0.5
+  1986: 0.1
   2000: 0.92
   2001: 0.93
   2002: 0.92

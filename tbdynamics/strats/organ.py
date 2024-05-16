@@ -29,8 +29,6 @@ def get_organ_strat(
         A Stratification object configured with organ-specific adjustments.
     """
     strat = Stratification("organ", organ_strata, infectious_compartments)
-
-
     # Define infectiousness adjustment by organ status
     inf_adj = {
         stratum: Multiply(fixed_params[f"{stratum}_infect_multiplier"])
@@ -38,17 +36,6 @@ def get_organ_strat(
     }
     for comp in infectious_compartments:
         strat.add_infectiousness_adjustments(comp, inf_adj)
-
-    # Define different natural history (infection death) by organ status
-    infect_death_adjs = {
-        stratum: Overwrite(
-            Parameter(
-                f"{stratum if stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
-            )
-        )
-        for stratum in organ_strata
-    }
-    strat.set_flow_adjustments("infect_death", infect_death_adjs)
 
     # Define different natural history (self recovery) by organ status
     self_recovery_adjustments = {
@@ -75,12 +62,26 @@ def get_organ_strat(
     )
     detection_covid_reduction = get_linear_interpolation_function([2020, 2021, 2021.9], [1.0, Parameter("detection_reduction"),1.0])
     cdr_covid_adjusted = get_piecewise_function([2020, 2022], [detection_func, detection_func * detection_covid_reduction, detection_func])
+    detection_adjs = {}
+    infect_death_adjs = {}
+
+# Detection and infect death
     for organ_stratum in organ_strata:
+        # Adjust detection by organ status
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
         detection_adjs[organ_stratum] = cdr_covid_adjusted * fixed_params[param_name]
 
+        # Calculate infection death adjustment using detection adjustment
+        death_rate_param_name = f"{organ_stratum if organ_stratum != 'extrapulmonary' else 'smear_negative'}_death_rate"
+        infect_death_adjs[organ_stratum] = (1.0 - detection_adjs[organ_stratum]) * Parameter(death_rate_param_name) # Calculate the infect-death for untreated TB patients
+
+
+# Apply the Multiply function to the detection adjustments
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
+    infect_death_adjs = {k: Overwrite(v) for k, v in infect_death_adjs.items()}
+# Set flow adjustments
     strat.set_flow_adjustments("detection", detection_adjs)
+    strat.set_flow_adjustments("infect_death", infect_death_adjs)
 
     splitting_proportions = {
         "smear_positive": fixed_params["incidence_props_pulmonary"]

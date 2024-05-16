@@ -36,8 +36,8 @@ def request_model_outputs(
         "percentage_latent", 100.0 * DerivedOutput("latent_population_size") / DerivedOutput("total_population")
     )
     #Death
-    model.request_output_for_flow("mortality_infectious_raw", "infect_death", save_results=False)
-    model.request_output_for_flow("mortality_on_treatment_raw", "treatment_death", save_results=False)
+    model.request_output_for_flow("mortality_infectious_raw", "infect_death")
+    model.request_output_for_flow("mortality_on_treatment_raw", "treatment_death")
     model.request_aggregate_output("mortality_raw", ["mortality_infectious_raw", "mortality_on_treatment_raw"])
     model.request_function_output("mortality", 1e5 * DerivedOutput("mortality_raw") / DerivedOutput("total_population"))
 

@@ -58,7 +58,7 @@ def get_all_priors() -> List:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("contact_rate", (0.003, 0.015)),
+        esp.UniformPrior("contact_rate", (0.001, 0.02)),
         esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 0.5)),
@@ -74,6 +74,7 @@ def get_all_priors() -> List:
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
         esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
         esp.UniformPrior("detection_reduction", (0.7, 0.9)),
+        # esp.UniformPrior("prop_death_among_negative_tx_outcome", (0.02, 0.5))
     ]
 
 
