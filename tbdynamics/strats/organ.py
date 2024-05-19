@@ -7,7 +7,6 @@ from summer2.functions.time import (
     get_linear_interpolation_function,
 )
 from tbdynamics.utils import tanh_based_scaleup
-import numpy as np
 
 
 def get_organ_strat(
@@ -33,7 +32,7 @@ def get_organ_strat(
     """
     strat = Stratification("organ", organ_strata, infectious_compartments)
 
-    # Define different detection rates by organ status.
+    # Define different detection rates by organ status
     detection_adjs = {}
     detection_func = Function(
         tanh_based_scaleup,
@@ -53,30 +52,28 @@ def get_organ_strat(
         [detection_func, detection_func * detection_covid_reduction, detection_func],
     )
 
+    # Detection, self-recovery and infect death
     inf_adj = {}
     detection_adjs = {}
     infect_death_adjs = {}
     self_recovery_adjustments = {}
-
-    # Detection and infect death
     for organ_stratum in organ_strata:
 
         # Define infectiousness adjustment by organ status
-        inf_adj[organ_stratum] =  Multiply(fixed_params[f"{organ_stratum}_infect_multiplier"])
+        inf_adj_param = fixed_params[f"{organ_stratum}_infect_multiplier"]
+        inf_adj[organ_stratum] = Multiply(inf_adj_param)
 
-        # Define different natural history (self recovery) by organ status
-        param_strat = "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
+        # Define different natural history (self-recovery) by organ status
+        param_strat = ("smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum)
         self_recovery_adjustments[organ_stratum] = Overwrite(Parameter(f"{param_strat}_self_recovery"))
 
         # Adjust detection by organ status
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
         detection_adjs[organ_stratum] = cdr_covid_adjusted * fixed_params[param_name]
 
-        # Calculate infection death adjustment using detection adjustment
-        death_rate_param_name = f"{param_strat}_death_rate"
-
-        # Calculate the infect-death for untreated TB patients
-        infect_death_adjs[organ_stratum] = (1.0 - detection_adjs[organ_stratum]) * Parameter(death_rate_param_name)  
+        # Calculate infection death adjustment using detection adjustments
+        death_rate_param = Parameter(f"{param_strat}_death_rate")
+        infect_death_adjs[organ_stratum] = (1.0 - detection_adjs[organ_stratum]) * death_rate_param
 
     # Apply the Multiply function to the detection adjustments
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
@@ -89,6 +86,7 @@ def get_organ_strat(
     for comp in infectious_compartments:
         strat.add_infectiousness_adjustments(comp, inf_adj)
 
+    # Splitting into organ strata proportions at onset
     splitting_proportions = {
         "smear_positive": fixed_params["incidence_props_pulmonary"]
         * fixed_params["incidence_props_smear_positive_among_pulmonary"],
@@ -99,4 +97,5 @@ def get_organ_strat(
     for flow_name in ["early_activation", "late_activation"]:
         flow_adjs = {k: Multiply(v) for k, v in splitting_proportions.items()}
         strat.set_flow_adjustments(flow_name, flow_adjs)
+
     return strat
