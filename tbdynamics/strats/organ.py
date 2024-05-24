@@ -64,8 +64,12 @@ def get_organ_strat(
         inf_adj[organ_stratum] = Multiply(inf_adj_param)
 
         # Define different natural history (self-recovery) by organ status
-        param_strat = ("smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum)
-        self_recovery_adjustments[organ_stratum] = Overwrite(Parameter(f"{param_strat}_self_recovery"))
+        param_strat = (
+            "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
+        )
+        self_recovery_adjustments[organ_stratum] = Overwrite(
+            Parameter(f"{param_strat}_self_recovery")
+        )
 
         # Adjust detection by organ status
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
@@ -73,7 +77,9 @@ def get_organ_strat(
 
         # Calculate infection death adjustment using detection adjustments
         death_rate_param = Parameter(f"{param_strat}_death_rate")
-        infect_death_adjs[organ_stratum] = (1.0 - detection_adjs[organ_stratum]) * death_rate_param
+        infect_death_adjs[organ_stratum] = (
+            1.0 - detection_adjs[organ_stratum]
+        ) * death_rate_param
 
     # Apply the Multiply function to the detection adjustments
     detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
