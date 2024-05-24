@@ -47,10 +47,7 @@ def get_organ_strat(
     detection_covid_reduction = get_linear_interpolation_function(
         [2020, 2021, 2021.9], [1.0, Parameter("detection_reduction"), 1.0]
     )
-    cdr_covid_adjusted = get_piecewise_function(
-        [2020, 2022],
-        [detection_func, detection_func * detection_covid_reduction, detection_func],
-    )
+    cdr_covid_adjusted = detection_func * detection_covid_reduction
 
     # Detection, self-recovery and infect death
     inf_adj = {}
@@ -64,29 +61,16 @@ def get_organ_strat(
         inf_adj[organ_stratum] = Multiply(inf_adj_param)
 
         # Define different natural history (self-recovery) by organ status
-        param_strat = (
-            "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
-        )
-        self_recovery_adjustments[organ_stratum] = Overwrite(
-            Parameter(f"{param_strat}_self_recovery")
-        )
+        param_strat = "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
+        self_recovery_adjustments[organ_stratum] = Overwrite(Parameter(f"{param_strat}_self_recovery"))
+        infect_death_adjs[organ_stratum] = Overwrite(Parameter(f"{param_strat}_death_rate"))
 
         # Adjust detection by organ status
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
         detection_adjs[organ_stratum] = cdr_covid_adjusted * fixed_params[param_name]
 
-        # Calculate infection death adjustment using detection adjustments
-        death_rate_param = Parameter(f"{param_strat}_death_rate")
-        infect_death_adjs[organ_stratum] = (
-            1.0 - detection_adjs[organ_stratum]
-        ) * death_rate_param
-
-    # Apply the Multiply function to the detection adjustments
-    detection_adjs = {k: Multiply(v) for k, v in detection_adjs.items()}
-    infect_death_adjs = {k: Overwrite(v) for k, v in infect_death_adjs.items()}
-
     # Set flow and infectiousness adjustments
-    strat.set_flow_adjustments("detection", detection_adjs)
+    # strat.set_flow_adjustments("detection", detection_rates)  # Need to revise
     strat.set_flow_adjustments("self_recovery", self_recovery_adjustments)
     strat.set_flow_adjustments("infect_death", infect_death_adjs)
     for comp in infectious_compartments:
