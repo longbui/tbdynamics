@@ -58,14 +58,14 @@ def get_all_priors() -> List:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("contact_rate", (0.001, 0.02)),
-        esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
+        esp.UniformPrior("contact_rate", (0.001, 0.05)),
+        # esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 1.0)),
         esp.UniformPrior("progression_multiplier", (1.0, 2.0)),
-        esp.UniformPrior("seed_time", (1800.0, 1840.0)),
-        esp.UniformPrior("seed_num", (1.0, 100.00)),
-        esp.UniformPrior("seed_duration", (1.0, 20.0)),
+        # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
+        # esp.UniformPrior("seed_num", (1.0, 100.00)),
+        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
         esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
         esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
         esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
