@@ -2,7 +2,10 @@ from pathlib import Path
 import numpy as np
 from typing import List, Dict
 from summer2 import CompartmentalModel
-from summer2.functions.time import get_sigmoidal_interpolation_function
+from summer2.functions.time import (
+    get_sigmoidal_interpolation_function,
+    get_linear_interpolation_function,
+)
 from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
@@ -43,10 +46,10 @@ def build_model(
         A configured CompartmentalModel object.
     """
     model = CompartmentalModel(
-        times=(fixed_params['time_start'], fixed_params['time_end']),
+        times=(fixed_params["time_start"], fixed_params["time_end"]),
         compartments=compartments,
         infectious_compartments=infectious_compartments,
-        timestep=fixed_params['time_step'],
+        timestep=fixed_params["time_step"],
     )
 
     birth_rates = get_birth_rate()
@@ -135,11 +138,16 @@ def add_infection_flow(model: CompartmentalModel):
             "recovered",
             "rr_infection_recovered",
         ),
-    ]      
+    ]
+    contact_rate = Parameter("contact_rate")
+    contact_covid_reduction = get_linear_interpolation_function(
+        [2020, 2021, 2021.9], [1.0, Parameter("contact_reduction"), 1.0]
+    )
+    contact_rate *= contact_covid_reduction
     for origin, modifier in infection_flows:
         process = f"infection_from_{origin}"
         modifier = Parameter(modifier) if modifier else 1.0
-        flow_rate = Parameter("contact_rate") * modifier
+        flow_rate = contact_rate * modifier
         model.add_infection_frequency_flow(process, flow_rate, origin, "early_latent")
 
 
@@ -181,7 +189,9 @@ def add_self_recovery_flow(model: CompartmentalModel) -> None:
     Args:
         model: The compartmental model to which the self-recovery flow is to be added.
     """
-    model.add_transition_flow("self_recovery", 1.0, "infectious", "recovered") #later adjusted by organ status
+    model.add_transition_flow(
+        "self_recovery", 1.0, "infectious", "recovered"
+    )  # later adjusted by organ status
 
 
 def add_infect_death_flow(model: CompartmentalModel) -> None:
@@ -193,7 +203,9 @@ def add_infect_death_flow(model: CompartmentalModel) -> None:
     Args:
         model: The compartmental model to which the infect-death flow is to be added.
     """
-    model.add_death_flow("infect_death", 0.2, "infectious") #later adjusted by organ status
+    model.add_death_flow(
+        "infect_death", 0.2, "infectious"
+    )  # later adjusted by organ status
 
 
 def add_detection(model) -> None:
@@ -208,7 +220,9 @@ def add_detection(model) -> None:
     """
 
     # Adding a transition flow named 'detection' to the model
-    model.add_transition_flow("detection", 1.0, "infectious", "on_treatment") # will be adjusted later
+    model.add_transition_flow(
+        "detection", 1.0, "infectious", "on_treatment"
+    )  # will be adjusted later
 
 
 def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
@@ -219,7 +233,7 @@ def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     """
 
     treatment_outcomes_flows = [
-        ("treatment_recovery", 1.0, "recovered"), #later adjusted by age
+        ("treatment_recovery", 1.0, "recovered"),  # later adjusted by age
         ("relapse", 1.0, "infectious"),
     ]
 
@@ -313,4 +327,3 @@ def seed_infectious(model: CompartmentalModel):
         "infectious",
         split_imports=True,
     )
-

@@ -83,14 +83,6 @@ def get_organ_strat(
     for comp in infectious_compartments:
         strat.add_infectiousness_adjustments(comp, inf_adj)
 
-    # Splitting into organ strata proportions at onset
-    # splitting_proportions = {
-    #     "smear_positive": Parameter("incidence_props_pulmonary")
-    #     * Parameter("incidence_props_smear_positive_among_pulmonary"),
-    #     "smear_negative": Parameter("incidence_props_pulmonary")
-    #     * (1.0 - Parameter("incidence_props_smear_positive_among_pulmonary")),
-    #     "extrapulmonary": 1.0 - Parameter("incidence_props_pulmonary"),
-    # }
     splitting_proportions = {
         "smear_positive": fixed_params["incidence_props_pulmonary"]
         * fixed_params["incidence_props_smear_positive_among_pulmonary"],
