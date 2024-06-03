@@ -73,8 +73,8 @@ def get_all_priors() -> List:
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
         esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
-        esp.UniformPrior("detection_reduction", (0.6, 0.9)),
-        esp.UniformPrior("contact_reduction", (0.3, 0.99)),
+        esp.UniformPrior("detection_reduction", (0., 0.5)),
+        # esp.UniformPrior("contact_reduction", (0., 0.8)),
     ]
 
 
@@ -96,7 +96,7 @@ def get_targets() -> List:
     return [
         est.NormalTarget("total_population", target_data["total_population"], stdev=100000.0),
         # est.NormalTarget("incidence", target_data["incidence"], 1.0),
-        est.NormalTarget("notification", target_data["notification"], stdev=5000.0),
+        est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
         # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
         # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)

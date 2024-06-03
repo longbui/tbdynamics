@@ -1,9 +1,6 @@
 from summer2 import CompartmentalModel
 from typing import List
-from summer2.functions.time import (
-    get_piecewise_function,
-    get_linear_interpolation_function,
-)
+from summer2.functions.time import get_linear_interpolation_function
 from summer2.parameters import Function, Parameter, Time, DerivedOutput
 from tbdynamics.utils import tanh_based_scaleup
 import numpy as np
@@ -44,6 +41,11 @@ def request_model_outputs(
     model.request_output_for_flow("mortality_on_treatment_raw", "treatment_death")
     model.request_aggregate_output(
         "mortality_raw", ["mortality_infectious_raw", "mortality_on_treatment_raw"]
+    )
+    model.request_cumulative_output(
+        "cumulative_deaths",
+        "mortality_raw",
+        start_time=2016.,
     )
     model.request_function_output(
         "mortality",
@@ -91,9 +93,15 @@ def request_model_outputs(
         ["incidence_early_raw", "incidence_late_raw"],
         save_results=False,
     )
+    model.request_cumulative_output(
+        "cumulative_diseased",
+        "incidence_raw",
+        start_time=2016.,
+    )
     model.request_function_output(
         "incidence", 1e5 * incidence_raw / DerivedOutput("total_population")
     )
+  
 
     # notification
     model.request_output_for_flow("notification", "detection", save_results=True)
@@ -169,7 +177,7 @@ def request_cdr(model):
         ],
     )
     detection_covid_reduction = get_linear_interpolation_function(
-        [2020, 2021, 2021.9], [1.0, Parameter("detection_reduction"), 1.0]
+        [2020, 2021, 2022], [1.0, 1- Parameter("detection_reduction"), 1.0]
     )
     cdr_covid_adjusted = detection_func * detection_covid_reduction
 
