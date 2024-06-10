@@ -58,7 +58,7 @@ def get_age_strat(
             param_age_bracket = max([k for k in latency_params if k <= t])
             age_val = latency_params[param_age_bracket]
 
-            # ** JT query ** Is this intended to be applied to early activation? (may need to ask Romain)
+            # ** JT query ** Is this intended to be applied to early activation? (may need to ask Romain) 
             adj = Parameter("progression_multiplier") * age_val if "_activation" in flow_name else age_val
             adjs[str(t)] = adj
         adjs = {k: Overwrite(v) for k, v in adjs.items()}
@@ -76,7 +76,7 @@ def get_age_strat(
                 average_infectiousness = get_average_sigmoid(age_low, age_high, inf_switch_age)
 
             # ** JT query ** The code looks like what I would want it to be here, but seems inconsistent with comment on the next line:
-            # Adjust infectiousness based on age, except for the "on_treatment" compartment.
+            # Adjust infectiousness for the "on_treatment" compartment, the on_treatment_infect_multiplier = 0.08 based on the assumption that the individuals remain infectious on the first 2 weeks of treatment
             if comp == "on_treatment":
                 average_infectiousness *= fixed_params["on_treatment_infect_multiplier"]
             # Update the adjustments dictionary for the current age group.

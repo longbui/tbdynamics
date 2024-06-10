@@ -11,7 +11,7 @@ from summer2.parameters import Parameter, Function, Time
 from .utils import triangle_wave_func
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
 from .constants import organ_strata
-from .outputs import request_model_outputs, request_cdr
+from .outputs import request_model_outputs
 from .strats import get_age_strat, get_organ_strat
 
 
@@ -65,8 +65,7 @@ def build_model(
     add_detection(model)
     add_treatment_related_outcomes(model)
     add_infect_death_flow(model)
-    stratify_model_by_age(
-        model,
+    age_strat = get_age_strat(
         compartments,
         infectious_compartments,
         age_strata,
@@ -74,7 +73,9 @@ def build_model(
         fixed_params,
         matrix,
     )
-    stratify_model_by_organ(model, infectious_compartments, organ_strata, fixed_params)
+    model.stratify_with(age_strat)
+    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params)
+    model.stratify_with(organ_strat)
     request_model_outputs(
         model,
         compartments,
@@ -83,7 +84,6 @@ def build_model(
         age_strata,
         organ_strata,
     )
-    request_cdr(model)
     return model
 
 
@@ -270,15 +270,6 @@ def stratify_model_by_age(
         organ_strata: List of organ strata for stratification.
         fixed_params: Dictionary of parameters with fixed values.
     """
-    age_strat = get_age_strat(
-        compartments,
-        infectious_compartments,
-        age_strata,
-        death_df,
-        fixed_params,
-        matrix,
-    )
-    model.stratify_with(age_strat)
 
 
 def stratify_model_by_organ(
@@ -302,8 +293,6 @@ def stratify_model_by_organ(
                       the stratification, such as modifiers for infectiousness or death rates
                       specific to each organ stratum.
     """
-    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params)
-    model.stratify_with(organ_strat)
 
 
 def seed_infectious(model: CompartmentalModel):

@@ -54,12 +54,8 @@ def get_organ_strat(
         inf_adj[organ_stratum] = Multiply(inf_adj_param)
 
         # Define different natural history (self-recovery) by organ status
-        param_strat = (
-            "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
-        )
-        self_recovery_adjustments[organ_stratum] = Overwrite(
-            Parameter(f"{param_strat}_self_recovery")
-        )
+        param_strat = "smear_negative" if organ_stratum == "extrapulmonary" else organ_stratum
+        self_recovery_adjustments[organ_stratum] = Overwrite(Parameter(f"{param_strat}_self_recovery"))
 
         # Adjust detection by organ status
         param_name = f"passive_screening_sensitivity_{organ_stratum}"
