@@ -50,15 +50,11 @@ def get_age_strat(
     strat.set_flow_adjustments("universal_death", death_adjs)
     # Set age-specific latency rate
     for flow_name, latency_params in fixed_params["age_latency"].items():
-        adjs = {
-            str(t): latency_params[max([k for k in latency_params if k <= t])]
-            * (
-                Parameter("progression_multiplier")
-                if flow_name in ["early_activation","late_activation"]
-                else 1
-            )
-            for t in age_strata
-        }
+        adjs = {}
+        for t in age_strata:
+            age_param = max([k for k in latency_params if k <= t])
+            prog_mult = Parameter("progression_multiplier") if "_activation" in flow_name else 1.0
+            adjs[str(t)] = latency_params[age_param] * prog_mult
         adjs = {k: Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)
 
