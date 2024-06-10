@@ -15,14 +15,8 @@ compartments = [
     "recovered",
 ]
 
-latent_compartments = [
-    "early_latent",
-    "late_latent",
-]
-infectious_compartments = [
-    "infectious",
-    "on_treatment",
-]
+latent_compartments = compartments[1: 3]
+infectious_compartments = compartments[3: 5]
 
 bcg_multiplier_dict = {
     "0": 0.3,
