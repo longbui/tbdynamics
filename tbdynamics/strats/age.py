@@ -41,6 +41,8 @@ def get_age_strat(
     """
     strat = AgeStratification("age", age_strata, compartments)
     strat.set_mixing_matrix(matrix)
+
+    # Set universal death rates
     universal_death_funcs, death_adjs = {}, {}
     for age in age_strata:
         universal_death_funcs[age] = get_sigmoidal_interpolation_function(
@@ -48,16 +50,19 @@ def get_age_strat(
         )
         death_adjs[str(age)] = Overwrite(universal_death_funcs[age])
     strat.set_flow_adjustments("universal_death", death_adjs)
+
     # Set age-specific latency rate
     for flow_name, latency_params in fixed_params["age_latency"].items():
         adjs = {}
         for t in age_strata:
-            age_param = max([k for k in latency_params if k <= t])
-            prog_mult = Parameter("progression_multiplier") if "_activation" in flow_name else 1.0
-            adjs[str(t)] = latency_params[age_param] * prog_mult
+            param_age_bracket = max([k for k in latency_params if k <= t])
+            age_val = latency_params[param_age_bracket]
+            adj = Parameter("progression_multiplier") * age_val if "_activation" in flow_name else age_val
+            adjs[str(t)] = adj
         adjs = {k: Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)
 
+    # Infectiousness
     inf_switch_age = fixed_params["age_infectiousness_switch"]
     for comp in infectious:
         inf_adjs = {}
