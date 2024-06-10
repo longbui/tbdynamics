@@ -67,13 +67,11 @@ def get_age_strat(
     for comp in infectious:
         inf_adjs = {}
         for i, age_low in enumerate(age_strata):
-            if i < len(age_strata) - 1:
-                average_infectiousness = get_average_sigmoid(
-                    age_low, age_strata[i + 1], inf_switch_age
-                )
-            else:
-                # Set infectiousness to 1. for the oldest age group
+            if age_low == age_strata[-1]:
                 average_infectiousness = 1.0
+            else:
+                age_high = age_strata[i + 1]
+                average_infectiousness = get_average_sigmoid(age_low, age_high, inf_switch_age)
             # Adjust infectiousness based on age, except for the "on_treatment" compartment.
             if comp == "on_treatment":
                 average_infectiousness *= fixed_params["on_treatment_infect_multiplier"]
@@ -101,11 +99,7 @@ def get_age_strat(
         list(fixed_params["time_variant_tsr"].keys()),
         list(fixed_params["time_variant_tsr"].values()),
     )
-    treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = (
-        {},
-        {},
-        {},
-    )
+    treatment_recovery_funcs, treatment_death_funcs, treatment_relapse_funcs = {}, {}, {}
     for age in age_strata:
         natural_death_rate = universal_death_funcs[age]
         treatment_outcomes = Function(
