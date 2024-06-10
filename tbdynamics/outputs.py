@@ -105,6 +105,8 @@ def request_model_outputs(
 
     # notification
     model.request_output_for_flow("notification", "detection", save_results=True)
+    #case detection rate:
+    model.request_function_output("case_detection_rate", DerivedOutput("notification") / DerivedOutput("incidence_raw") * 100)
 
     # Request proportion of each compartment in the total population
     for compartment in compartments:
@@ -177,9 +179,9 @@ def request_cdr(model):
         ],
     )
     detection_covid_reduction = get_linear_interpolation_function(
-        [2020, 2021, 2022], [1.0, 1- Parameter("detection_reduction"), 1.0]
+        [2020, 2021, 2022], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]
     )
-    cdr_covid_adjusted = detection_func * detection_covid_reduction
+    covid_adjusted = detection_func * detection_covid_reduction
 
-    model.add_computed_value_func("cdr", cdr_covid_adjusted)
-    model.request_computed_value_output("cdr")
+    model.add_computed_value_func("detection_rate", covid_adjusted)
+    model.request_computed_value_output("detection_rate")
