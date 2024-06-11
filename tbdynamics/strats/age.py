@@ -58,7 +58,7 @@ def get_age_strat(
             param_age_bracket = max([k for k in latency_params if k <= t])
             age_val = latency_params[param_age_bracket]
 
-            # ** JT query ** Is this intended to be applied to early activation? (may need to ask Romain) 
+            # Apply the progression mutiplier to activation flow
             adj = Parameter("progression_multiplier") * age_val if "_activation" in flow_name else age_val
             adjs[str(t)] = adj
         adjs = {k: Overwrite(v) for k, v in adjs.items()}

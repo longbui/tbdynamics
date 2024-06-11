@@ -98,7 +98,7 @@ def get_targets() -> List:
         # est.NormalTarget("incidence", target_data["incidence"], 1.0),
         est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
         # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
-        # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 1.0),
+        # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 50.0),
         #est.NormalTarget("cdr", target_data["cdr"], 0.1)
         # est.NormalTarget("mortality_raw", target_data["mortality_raw"], stdev=1000.0),
     ]
