@@ -40,5 +40,5 @@ indicator_names = {
         'incidence': 'Incidence (per 100,000)',
         'percentage_latent': 'Percentage Latent (%)',
         'prevalence_pulmonary': 'Prevalence Pulmonary (per 100,000)',
-        'cdr': 'Case detection rate'
+        'case_detection_rate': 'Case detection rate'
     }

@@ -1,4 +1,3 @@
-
 from estival.model import BayesianCompartmentalModel
 import estival.priors as esp
 import estival.targets as est
@@ -9,6 +8,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 import plotly.io as pio
+import seaborn as sns
+import matplotlib.pyplot as plt
 from typing import List, Dict
 from tbdynamics.model import build_model
 from tbdynamics.inputs import load_params, load_targets, matrix
@@ -17,12 +18,13 @@ from tbdynamics.constants import (
     compartments,
     latent_compartments,
     infectious_compartments,
-    indicator_names
+    indicator_names,
 )
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names
 
 pio.templates.default = "simple_white"
+
 
 def get_bcm(params=None) -> BayesianCompartmentalModel:
     """
@@ -73,7 +75,7 @@ def get_all_priors() -> List:
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
         esp.GammaPrior.from_mode("time_to_screening_end_asymp", 1.7, 10.0),
-        esp.UniformPrior("detection_reduction", (0., 0.5)),
+        esp.UniformPrior("detection_reduction", (0.0, 0.5)),
         # esp.UniformPrior("contact_reduction", (0., 0.8)),
     ]
 
@@ -94,19 +96,26 @@ def get_targets() -> List:
     """
     target_data = load_targets()
     return [
-        est.NormalTarget("total_population", target_data["total_population"], stdev=100000.0),
+        est.NormalTarget(
+            "total_population", target_data["total_population"], stdev=100000.0
+        ),
         est.NormalTarget("notification", target_data["notification"], stdev=7000.0),
-        est.NormalTarget("adults_prevalence_pulmonary", target_data["adults_prevalence_pulmonary"], 50.0),
+        est.NormalTarget(
+            "adults_prevalence_pulmonary",
+            target_data["adults_prevalence_pulmonary"],
+            50.0,
+        ),
         # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], 10.0),
     ]
 
+
 def plot_spaghetti(
-    spaghetti: pd.DataFrame, 
-    indicators: List[str], 
-    n_cols: int, 
+    spaghetti: pd.DataFrame,
+    indicators: List[str],
+    n_cols: int,
     target_data: Dict,
     plot_start_date: int = 1800,
-    plot_end_date: int = 2023
+    plot_end_date: int = 2023,
 ) -> go.Figure:
     """Generate a spaghetti plot to compare any number of requested outputs to targets.
 
@@ -120,35 +129,51 @@ def plot_spaghetti(
         The spaghetti plot figure object
     """
     nrows = int(np.ceil(len(indicators) / n_cols))
-    fig = get_standard_subplot_fig(nrows, n_cols, [(indicator_names[ind] if ind in indicator_names else ind.replace('_', ' ')) for ind in indicators])
+    fig = get_standard_subplot_fig(
+        nrows,
+        n_cols,
+        [
+            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
+            for ind in indicators
+        ],
+    )
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
 
         # Model outputs
         ind_spagh = spaghetti[ind]
-        ind_spagh.columns = ind_spagh.columns.map(lambda col: f'{col[0]}, {col[1]}')
+        ind_spagh.columns = ind_spagh.columns.map(lambda col: f"{col[0]}, {col[1]}")
         fig.add_traces(px.line(ind_spagh).data, rows=row, cols=col)
 
         # Targets
         if ind in target_data.keys():
             target = target_data[ind]
-            target_marker_config = dict(size=5.0, line=dict(width=0.5, color='DarkSlateGrey'))
-            lines = go.Scatter(x=target.index, y=target, marker=target_marker_config, name='targets', mode='markers')
+            target_marker_config = dict(
+                size=5.0, line=dict(width=0.5, color="DarkSlateGrey")
+            )
+            lines = go.Scatter(
+                x=target.index,
+                y=target,
+                marker=target_marker_config,
+                name="targets",
+                mode="markers",
+            )
             fig.add_trace(lines, row=row, col=col)
         fig.update_layout(yaxis4=dict(range=[0, 2.2]))
         fig.update_layout(showlegend=False)
         fig.update_yaxes(range=None)
     return fig.update_xaxes(range=[plot_start_date, plot_end_date])
 
+
 def plot_output_ranges(
-    quantile_outputs: Dict[str, pd.DataFrame], 
-    target_data: Dict, 
-    indicators: List[str], 
-    quantiles: List[float], 
+    quantile_outputs: Dict[str, pd.DataFrame],
+    target_data: Dict,
+    indicators: List[str],
+    quantiles: List[float],
     n_cols: int,
     plot_start_date: int = 1800,
     plot_end_date: int = 2023,
-    max_alpha: float=0.7
+    max_alpha: float = 0.7,
 ) -> go.Figure:
     """Plot the credible intervals with subplots for each output,
     for a single run of interest.
@@ -165,18 +190,55 @@ def plot_output_ranges(
         The interactive figure
     """
     nrows = int(np.ceil(len(indicators) / n_cols))
-    fig = get_standard_subplot_fig(nrows, n_cols, [(indicator_names[ind] if ind in indicator_names else ind.replace('_', ' ')) for ind in indicators])
+    fig = get_standard_subplot_fig(
+        nrows,
+        n_cols,
+        [
+            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
+            for ind in indicators
+        ],
+    )
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
         data = quantile_outputs[ind]
         for q, quant in enumerate(quantiles):
-            alpha = min((q, len(quantiles) - q)) / np.floor(len(quantiles) / 2) * max_alpha
-            fill_colour = f'rgba(0,30,180,{str(alpha)})'
-            fig.add_traces(go.Scatter(x=data.index, y=data[quant], fill='tonexty', fillcolor=fill_colour, line={'width': 0}, name=quant), rows=row, cols=col)
-        fig.add_traces(go.Scatter(x=data.index, y=data[0.5], line={'color': 'black'}, name='median'), rows=row, cols=col)
+            alpha = (
+                min((q, len(quantiles) - q)) / np.floor(len(quantiles) / 2) * max_alpha
+            )
+            fill_colour = f"rgba(0,30,180,{str(alpha)})"
+            fig.add_traces(
+                go.Scatter(
+                    x=data.index,
+                    y=data[quant],
+                    fill="tonexty",
+                    fillcolor=fill_colour,
+                    line={"width": 0},
+                    name=quant,
+                ),
+                rows=row,
+                cols=col,
+            )
+        fig.add_traces(
+            go.Scatter(
+                x=data.index, y=data[0.5], line={"color": "black"}, name="median"
+            ),
+            rows=row,
+            cols=col,
+        )
         if ind in target_data.keys():
             target = target_data[ind]
-            marker_format = {'size': 5.0, 'color': 'rgba(250, 135, 206, 0.2)', 'line': {'width': 1.0}}
-            fig.add_traces(go.Scatter(x=target.index, y=target, mode='markers', marker=marker_format), rows=row, cols=col)
+            marker_format = {
+                "size": 5.0,
+                "color": "rgba(250, 135, 206, 0.2)",
+                "line": {"width": 1.0},
+            }
+            fig.add_traces(
+                go.Scatter(
+                    x=target.index, y=target, mode="markers", marker=marker_format
+                ),
+                rows=row,
+                cols=col,
+            )
+
     fig.update_xaxes(range=[plot_start_date, plot_end_date])
-    return fig.update_layout(yaxis4={'range': [0.0, 2.5]}, showlegend=False)
+    return fig.update_layout(yaxis4={"range": [0.0, 2.5]}, showlegend=False)
