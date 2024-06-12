@@ -204,7 +204,7 @@ def add_infect_death_flow(model: CompartmentalModel) -> None:
         model: The compartmental model to which the infect-death flow is to be added.
     """
     model.add_death_flow(
-        "infect_death", 0.2, "infectious"
+        "infect_death", 1.0, "infectious"
     )  # later adjusted by organ status
 
 
