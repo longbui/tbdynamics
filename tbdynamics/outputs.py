@@ -82,24 +82,24 @@ def request_model_outputs(
 
     # incidence
     model.request_output_for_flow(
-        "incidence_early_raw", "early_activation", save_results=False
+        "incidence_early_raw", "early_activation"
     )
     model.request_output_for_flow(
-        "incidence_late_raw", "late_activation", save_results=False
+        "incidence_late_raw", "late_activation"
     )
 
-    incidence_raw = model.request_aggregate_output(
+    model.request_aggregate_output(
         "incidence_raw",
         ["incidence_early_raw", "incidence_late_raw"],
-        save_results=False,
+        save_results=True,
     )
     model.request_cumulative_output(
         "cumulative_diseased",
         "incidence_raw",
-        start_time=2016.,
+        start_time=2016.0,
     )
     model.request_function_output(
-        "incidence", 1e5 * incidence_raw / DerivedOutput("total_population")
+        "incidence", 1e5 * DerivedOutput("incidence_raw") / DerivedOutput("total_population")
     )
   
 
@@ -175,7 +175,7 @@ def request_cdr(model):
             Parameter("screening_scaleup_shape"),
             Parameter("screening_inflection_time"),
             0.0,
-            Parameter("screening_end_asymp"),
+            1.0 / Parameter("time_to_screening_end_asymp"),
         ],
     )
     detection_covid_reduction = get_linear_interpolation_function(

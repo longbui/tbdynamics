@@ -72,7 +72,7 @@ def get_all_priors() -> List:
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
+        esp.GammaPrior.from_mode("time_to_screening_end_asymp", 1.7, 10.0),
         esp.UniformPrior("detection_reduction", (0., 0.5)),
         # esp.UniformPrior("contact_reduction", (0., 0.8)),
     ]
@@ -95,12 +95,9 @@ def get_targets() -> List:
     target_data = load_targets()
     return [
         est.NormalTarget("total_population", target_data["total_population"], stdev=100000.0),
-        # est.NormalTarget("incidence", target_data["incidence"], 1.0),
-        est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
-        # est.NormalTarget("percentage_latent", target_data["percentage_latent"], 1.0),
-        # est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 50.0),
-        #est.NormalTarget("cdr", target_data["cdr"], 0.1)
-        # est.NormalTarget("mortality_raw", target_data["mortality_raw"], stdev=1000.0),
+        est.NormalTarget("notification", target_data["notification"], stdev=7000.0),
+        est.NormalTarget("prevalence_pulmonary", target_data["prevalence_pulmonary"], 50.0),
+        # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_pulmonary"], 10.0),
     ]
 
 def plot_spaghetti(

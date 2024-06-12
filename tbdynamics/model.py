@@ -57,14 +57,30 @@ def build_model(
     death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
     model.set_initial_population({"susceptible": Parameter("start_population_size")})
     seed_infectious(model)
-    add_entry_flow(model, birth_rates)
-    add_natural_death_flow(model)
+    # add birth flow
+    crude_birth_rate = get_sigmoidal_interpolation_function(
+        birth_rates.index, birth_rates.values
+    )
+    model.add_crude_birth_flow("birth", crude_birth_rate, "susceptible")
+    # Add natural death flow
+    model.add_universal_death_flows(
+        "universal_death", 1.0
+    )  # Adjusted later by age stratification
     add_infection_flow(model)
     add_latency_flow(model)
-    add_self_recovery_flow(model)
-    add_detection(model)
+    # Add self-recovery flow
+    model.add_transition_flow(
+        "self_recovery", 1.0, "infectious", "recovered"
+    )  # later adjusted by organ status
+    # Add detection
+    model.add_transition_flow(
+        "detection", 1.0, "infectious", "on_treatment"
+    )  # will be adjusted later
     add_treatment_related_outcomes(model)
-    add_infect_death_flow(model)
+    # Add infect death flow
+    model.add_death_flow(
+        "infect_death", 1.0, "infectious"
+    )  # later adjusted by organ status
     age_strat = get_age_strat(
         compartments,
         infectious_compartments,
@@ -85,32 +101,6 @@ def build_model(
         organ_strata,
     )
     return model
-
-
-def add_entry_flow(model: CompartmentalModel, birth_rates: Dict):
-    """
-    Adds a crude birth flow to the model based on given birth rates.
-
-    Args:
-        model: The compartmental model to add the flow to.
-        birth_rates: A dictionary containing birth rates data.
-    """
-    process = "birth"
-    crude_birth_rate = get_sigmoidal_interpolation_function(
-        birth_rates.index, birth_rates.values
-    )
-    model.add_crude_birth_flow(process, crude_birth_rate, "susceptible")
-
-
-def add_natural_death_flow(model: CompartmentalModel):
-    """
-    Adds a universal death flow to the model, to be adjusted later by age stratification.
-    Args:
-        model: The compartmental model to add the flow to.
-    """
-    model.add_universal_death_flows(
-        "universal_death", 1.0
-    )  # Adjusted later by age stratification
 
 
 def add_infection_flow(model: CompartmentalModel):
@@ -180,51 +170,6 @@ def add_latency_flow(model):
         model.add_transition_flow(*latency_flow)
 
 
-def add_self_recovery_flow(model: CompartmentalModel) -> None:
-    """
-    Adds a self-recovery flow to the model, enabling individuals in the 'infectious' compartment
-    to recover spontaneously without medical intervention. This flow represents the natural
-    recovery process of individuals who overcome the infection through their immune response.
-
-    Args:
-        model: The compartmental model to which the self-recovery flow is to be added.
-    """
-    model.add_transition_flow(
-        "self_recovery", 1.0, "infectious", "recovered"
-    )  # later adjusted by organ status
-
-
-def add_infect_death_flow(model: CompartmentalModel) -> None:
-    """
-    Adds an infection-induced death flow to the model, accounting for individuals in the
-    'infectious' compartment who succumb to the disease. This flow represents the fatal
-    progression of the infection in some individuals, leading to death.
-
-    Args:
-        model: The compartmental model to which the infect-death flow is to be added.
-    """
-    model.add_death_flow(
-        "infect_death", 0.2, "infectious"
-    )  # later adjusted by organ status
-
-
-def add_detection(model) -> None:
-    """
-    Adds a detection flow to the model, transitioning individuals from the 'infectious'
-    compartment to the 'on_treatment' compartment based on a dynamically calculated detection rate.
-
-    Args:
-        model: The compartmental model to which the detection flow is to be added.
-        fixed_params: A dictionary containing model parameters, including keys and values
-                      for calculating the detection rate.
-    """
-
-    # Adding a transition flow named 'detection' to the model
-    model.add_transition_flow(
-        "detection", 1.0, "infectious", "on_treatment"
-    )  # will be adjusted later
-
-
 def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     """
     Adds treatment-related outcome flows to the compartmental model. This includes flows for treatment recovery,
@@ -249,50 +194,6 @@ def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
     # Define and add treatment death flow separately since it uses a different method
     treatment_death_flow = ["treatment_death", 1.0, "on_treatment"]
     model.add_death_flow(*treatment_death_flow)
-
-
-def stratify_model_by_age(
-    model,
-    compartments,
-    infectious_compartments,
-    age_strata,
-    death_df,
-    fixed_params,
-    matrix,
-) -> None:
-    """
-    Applies organ-based stratification to the model, adjusting for different disease dynamics
-    based on organ involvement.
-
-    Args:
-        model: The compartmental model to apply stratification to.
-        infectious_compartments: List of infectious compartment names.
-        organ_strata: List of organ strata for stratification.
-        fixed_params: Dictionary of parameters with fixed values.
-    """
-
-
-def stratify_model_by_organ(
-    model: CompartmentalModel,
-    infectious_compartments: List[str],
-    organ_strata: List[str],
-    fixed_params: Dict[str, any],
-) -> None:
-    """
-    Applies organ-based stratification to the model. This stratification adjusts the model
-    to account for different disease dynamics based on the specific organ involved. The
-    function retrieves an organ stratification configuration via `get_organ_strat` and
-    applies it to the provided model.
-
-    Args:
-        model: The compartmental model to which the stratification will be applied.
-        infectious_compartments: A list of compartments within the model that are considered infectious.
-        organ_strata: A list of organ strata names used for stratification, indicating different
-                      disease dynamics based on the specific organ involved.
-        fixed_params: A dictionary of parameters with fixed values that are used to configure
-                      the stratification, such as modifiers for infectiousness or death rates
-                      specific to each organ stratum.
-    """
 
 
 def seed_infectious(model: CompartmentalModel):
