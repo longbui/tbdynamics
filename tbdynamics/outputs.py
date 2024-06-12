@@ -166,8 +166,6 @@ def request_model_outputs(
         "adults_prevalence_pulmonary",
         1e5 * DerivedOutput("adults_pulmonary") / DerivedOutput("adults_pop"),
     )
-
-def request_cdr(model):
     detection_func = Function(
         tanh_based_scaleup,
         [

@@ -26,7 +26,7 @@ incidence:
 percentage_latent:
   2019: 43.0
 
-prevalence_pulmonary: 
+adults_prevalence_pulmonary: 
   2017: 322.0
 
 mortality_raw:
