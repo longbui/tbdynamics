@@ -72,7 +72,7 @@ def get_all_priors() -> List:
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        esp.UniformPrior("screening_end_asymp", (0.55, 0.7)),
+        esp.UniformPrior("time_to_screening_end_asymp", (1.4, 1.8)),
         esp.UniformPrior("detection_reduction", (0., 0.5)),
         # esp.UniformPrior("contact_reduction", (0., 0.8)),
     ]
