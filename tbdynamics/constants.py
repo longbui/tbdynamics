@@ -32,7 +32,7 @@ BURN_IN = 50000
 OPTI_DRAWS = 100
 
 PLOT_START_DATE = 1800
-PLOT_END_DATE = 2023
+PLOT_END_DATE = 2035
 
 indicator_names = {
         'total_population': 'Total Population',
