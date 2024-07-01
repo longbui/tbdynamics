@@ -130,10 +130,10 @@ def add_infection_flow(model: CompartmentalModel):
         ),
     ]
     contact_rate = Parameter("contact_rate")
-    # contact_covid_reduction = get_linear_interpolation_function(
-    #     [2020,2021, 2022], [1.0, 1 - Parameter("contact_reduction"), 1.0]
-    # )
-    # contact_rate *= contact_covid_reduction
+    contact_covid_reduction = get_linear_interpolation_function(
+        [2020,2021, 2022], [1.0, 1 - Parameter("contact_reduction"), 1.0]
+    )
+    contact_rate *= contact_covid_reduction
     for origin, modifier in infection_flows:
         process = f"infection_from_{origin}"
         modifier = Parameter(modifier) if modifier else 1.0

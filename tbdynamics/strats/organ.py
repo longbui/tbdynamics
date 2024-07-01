@@ -38,7 +38,7 @@ def get_organ_strat(
             Parameter("screening_scaleup_shape"),
             Parameter("screening_inflection_time"),
             0.0,
-            1.0 / Parameter("time_to_screening_end_asymp"),
+            1 / Parameter("time_to_screening_end_asymp"),
         ],
     )
     detection_covid_reduction = get_linear_interpolation_function(
