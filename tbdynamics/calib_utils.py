@@ -22,6 +22,7 @@ from tbdynamics.constants import (
 )
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names
+from tbdynamics.extended_gamma import ExtendedGammaPrior as extGamma
 
 pio.templates.default = "simple_white"
 
@@ -74,7 +75,9 @@ def get_all_priors() -> List:
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        esp.UniformPrior("time_to_screening_end_asymp", (1.0, 10.0)),
+        # esp.UniformPrior("time_to_screening_end_asymp", (0., 12.8)),
+        # extGamma.from_median("time_to_screening_end_asymp", 1.3, 1.4),
+        esp.TruncNormalPrior("time_to_screening_end_asymp", 1.3, 0.077, (0.0, 12.8)),
         esp.UniformPrior("detection_reduction", (0.01, 0.5)),
         esp.UniformPrior("contact_reduction", (0.01, 0.8)),
         # esp.UniformPrior("incidence_props_smear_positive_among_pulmonary", (0.1, 0.8)),
@@ -100,14 +103,14 @@ def get_targets() -> List:
         est.NormalTarget(
             "total_population", target_data["total_population"], stdev=100000.0
         ),
-        est.NormalTarget("notification", target_data["notification"], stdev=5000.0),
+        est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
         est.NormalTarget(
             "adults_prevalence_pulmonary",
             target_data["adults_prevalence_pulmonary"],
             36.0,
         ),
         # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], 15.0),
-        # est.NormalTarget("incidence", target_data["incidence"], 50.0),
+        # est.NormalTarget("case_detection_rate", target_data["case_detection_rate"], 5.0),
     ]
 
 
