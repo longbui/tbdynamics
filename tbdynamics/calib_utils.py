@@ -22,7 +22,6 @@ from tbdynamics.constants import (
 )
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names
-from tbdynamics.extended_gamma import ExtendedGammaPrior as extGamma
 
 pio.templates.default = "simple_white"
 
