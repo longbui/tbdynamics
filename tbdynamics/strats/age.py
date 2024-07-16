@@ -59,7 +59,7 @@ def get_age_strat(
             age_val = latency_params[param_age_bracket]
 
             # Apply the progression mutiplier to activation flow
-            adj = Parameter("progression_multiplier") * age_val if "_activation" in flow_name else age_val
+            adj = Parameter("progression_multiplier") * age_val if "late_activation" in flow_name else age_val
             adjs[str(t)] = adj
         adjs = {k: Overwrite(v) for k, v in adjs.items()}
         strat.set_flow_adjustments(flow_name, adjs)

@@ -23,7 +23,7 @@ smear_positive_infect_multiplier: 1.0
 smear_negative_infect_multiplier: 0.25
 extrapulmonary_infect_multiplier: 0.
 incidence_props_pulmonary: 0.80
-incidence_props_smear_positive_among_pulmonary: 0.3
+incidence_props_smear_positive_among_pulmonary: 0.25
 prop_death_among_negative_tx_outcome: 0.03
 time_variant_bcg_perc:
   1990: 49.

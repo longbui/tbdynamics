@@ -50,6 +50,22 @@ def get_bcm(params=None) -> BayesianCompartmentalModel:
     )
     priors = get_all_priors()
     targets = get_targets()
+    prev_dispersion = esp.UniformPrior("prev_dispersion", (10, 50))
+    notif_dispersion = esp.UniformPrior("notif_dispersion", (2000, 10000))
+    target_data = load_targets()
+
+    targets.extend(
+        [
+            est.NormalTarget(
+                "adults_prevalence_pulmonary",
+                target_data["adults_prevalence_pulmonary"],
+                stdev=prev_dispersion,
+            ),
+            est.NormalTarget(
+                "notification", target_data["notification"], stdev=7000
+            ),
+        ]
+    )
     return BayesianCompartmentalModel(tb_model, params, priors, targets)
 
 
@@ -64,7 +80,7 @@ def get_all_priors() -> List:
         # esp.UniformPrior("start_population_size", (2000000.0, 2500000.0)),
         esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
         esp.UniformPrior("rr_infection_recovered", (0.2, 1.0)),
-        esp.UniformPrior("progression_multiplier", (1.0, 5.0)),
+        esp.UniformPrior("progression_multiplier", (0.5, 5.0)),
         # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
         # esp.UniformPrior("seed_num", (1.0, 100.00)),
         # esp.UniformPrior("seed_duration", (1.0, 20.0)),
@@ -74,9 +90,9 @@ def get_all_priors() -> List:
         esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.15)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
-        # esp.UniformPrior("time_to_screening_end_asymp", (0., 12.8)),
+        esp.UniformPrior("time_to_screening_end_asymp", (0.05, 2.0)),
         # extGamma.from_median("time_to_screening_end_asymp", 1.3, 1.4),
-        esp.TruncNormalPrior("time_to_screening_end_asymp", 1.3, 0.077, (0.0, 12.8)),
+        # esp.TruncNormalPrior("time_to_screening_end_asymp", 1.3, 0.077, (0.0, 12.8)),
         esp.UniformPrior("detection_reduction", (0.01, 0.5)),
         esp.UniformPrior("contact_reduction", (0.01, 0.8)),
         # esp.UniformPrior("incidence_props_smear_positive_among_pulmonary", (0.1, 0.8)),
@@ -102,12 +118,12 @@ def get_targets() -> List:
         est.NormalTarget(
             "total_population", target_data["total_population"], stdev=100000.0
         ),
-        est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
-        est.NormalTarget(
-            "adults_prevalence_pulmonary",
-            target_data["adults_prevalence_pulmonary"],
-            36.0,
-        ),
+        # est.NormalTarget("notification", target_data["notification"], stdev=6000.0),
+        # est.NormalTarget(
+        #     "adults_prevalence_pulmonary",
+        #     target_data["adults_prevalence_pulmonary"],
+        #     stdev=36.0
+        # ),
         # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], 15.0),
         # est.NormalTarget("case_detection_rate", target_data["case_detection_rate"], 5.0),
     ]
