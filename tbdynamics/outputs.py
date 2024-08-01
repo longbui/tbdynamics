@@ -3,6 +3,7 @@ from typing import List
 from summer2.functions.time import get_linear_interpolation_function
 from summer2.parameters import Function, Parameter, Time, DerivedOutput
 from tbdynamics.utils import tanh_based_scaleup
+from tbdynamics.inputs import load_targets
 import numpy as np
 
 
@@ -26,20 +27,20 @@ def request_model_outputs(
         organ_strata: A list of organ strata used for stratification.
     """
     # Request total population size
-    model.request_output_for_compartments("total_population", compartments)
+    total_population = model.request_output_for_compartments("total_population", compartments)
 
     # Calculate and request percentage of latent population
-    model.request_output_for_compartments("latent_population_size", latent_compartments)
+    latent_population_size = model.request_output_for_compartments("latent_population_size", latent_compartments)
     model.request_function_output(
         "percentage_latent",
         100.0
-        * DerivedOutput("latent_population_size")
-        / DerivedOutput("total_population"),
+        * latent_population_size
+        / total_population,
     )
     # Death
     model.request_output_for_flow("mortality_infectious_raw", "infect_death")
     model.request_output_for_flow("mortality_on_treatment_raw", "treatment_death")
-    model.request_aggregate_output(
+    mortality_raw = model.request_aggregate_output(
         "mortality_raw", ["mortality_infectious_raw", "mortality_on_treatment_raw"]
     )
     model.request_cumulative_output(
@@ -49,7 +50,7 @@ def request_model_outputs(
     )
     model.request_function_output(
         "mortality",
-        1e5 * DerivedOutput("mortality_raw") / DerivedOutput("total_population"),
+        1e5 * mortality_raw / total_population,
     )
 
     # Calculate and request prevalence of pulmonary
@@ -64,20 +65,20 @@ def request_model_outputs(
         f"infectious_sizeXorgan_{organ_stratum}"
         for organ_stratum in ["smear_positive", "smear_negative"]
     ]
-    model.request_aggregate_output("pulmonary_pop_size", pulmonary_outputs)
+    pulmonary_pop_size = model.request_aggregate_output("pulmonary_pop_size", pulmonary_outputs)
     model.request_function_output(
         "prevalence_pulmonary",
-        1e5 * DerivedOutput("pulmonary_pop_size") / DerivedOutput("total_population"),
+        1e5 * pulmonary_pop_size / total_population,
     )
     # total prevalence
-    model.request_output_for_compartments(
+    infectious_population_size = model.request_output_for_compartments(
         "infectious_population_size", infectious_compartments
     )
     model.request_function_output(
         "prevalence_infectious",
         1e5
-        * DerivedOutput("infectious_population_size")
-        / DerivedOutput("total_population"),
+        * infectious_population_size
+        / total_population,
     )
 
     # incidence
@@ -88,7 +89,7 @@ def request_model_outputs(
         "incidence_late_raw", "late_activation"
     )
 
-    model.request_aggregate_output(
+    incidence_raw = model.request_aggregate_output(
         "incidence_raw",
         ["incidence_early_raw", "incidence_late_raw"],
         save_results=True,
@@ -99,21 +100,26 @@ def request_model_outputs(
         start_time=2016.0,
     )
     model.request_function_output(
-        "incidence", 1e5 * DerivedOutput("incidence_raw") / DerivedOutput("total_population")
+        "incidence", 1e5 * incidence_raw / total_population
     )
   
 
     # notification
-    model.request_output_for_flow("notification", "detection", save_results=True)
-    #case detection rate:
-    model.request_function_output("case_detection_rate", DerivedOutput("notification") / DerivedOutput("incidence_raw") * 100)
+    notif = model.request_output_for_flow("notification", "detection")
+    #case notification rate:
+    # targets = load_targets()
+    # notif = targets['notification'].to_numpy()
+    # # print(notif)
+    # # print('----')
+    # # print(incidence_raw)
+    model.request_function_output("case_notification_rate", notif / incidence_raw * 100)
 
     # Request proportion of each compartment in the total population
     for compartment in compartments:
         model.request_output_for_compartments(f"number_{compartment}", compartment)
         model.request_function_output(
             f"prop_{compartment}",
-            DerivedOutput(f"number_{compartment}") / DerivedOutput("total_population"),
+            DerivedOutput(f"number_{compartment}") / total_population,
         )
 
     # Request total population by age stratum

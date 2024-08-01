@@ -51,7 +51,7 @@ def get_bcm(params=None) -> BayesianCompartmentalModel:
     priors = get_all_priors()
     targets = get_targets()
     # prev_dispersion = esp.UniformPrior("prev_dispersion", (10, 50))
-    # notif_dispersion = esp.UniformPrior("notif_dispersion", (2000, 10000))
+    notif_dispersion = esp.UniformPrior("notif_dispersion", (2000, 10000))
     target_data = load_targets()
 
     targets.extend(
@@ -61,7 +61,7 @@ def get_bcm(params=None) -> BayesianCompartmentalModel:
             #     target_data["adults_prevalence_pulmonary"],
             #     stdev=36.0,
             # ),
-            est.NormalTarget("notification", target_data["notification"], stdev=4000.0),
+            est.NormalTarget("notification", target_data["notification"], stdev=notif_dispersion),
             # est.NormalTarget(
             #     "prevalence_smear_positive",
             #     target_data["prevalence_smear_positive"],
@@ -79,24 +79,24 @@ def get_all_priors() -> List:
         All the priors used under any analyses
     """
     return [
-        esp.UniformPrior("contact_rate", (0.001, 0.06)),
-        esp.UniformPrior("start_population_size", (2000000.0, 3000000.0)),
+        esp.GammaPrior.from_mode("contact_rate", 0.02, 0.05),
+        # esp.UniformPrior("start_population_size", (2000000.0, 3000000.0)),
         esp.BetaPrior("rr_infection_latent", 3.0, 8.0), #The weighted adjusted risk ratio was 0.21 (95% CI: .14–.30)
         esp.BetaPrior("rr_infection_recovered", 2.0, 2.0),
-        esp.GammaPrior.from_mode("progression_multiplier", 1.0, 2.0),
-        esp.UniformPrior("seed_time", (1800.0, 1840.0)),
-        esp.UniformPrior("seed_num", (1.0, 100.00)),
-        esp.UniformPrior("seed_duration", (1.0, 20.0)),
-        esp.UniformPrior("smear_positive_death_rate", (0.335, 0.449)),
-        esp.UniformPrior("smear_negative_death_rate", (0.017, 0.035)),
-        esp.UniformPrior("smear_positive_self_recovery", (0.177, 0.288)),
-        esp.UniformPrior("smear_negative_self_recovery", (0.073, 0.209)),
-        esp.UniformPrior("screening_scaleup_shape", (0.05, 0.5)),
+        esp.GammaPrior.from_mean("progression_multiplier", 1.0, 2.0),
+        # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
+        # esp.UniformPrior("seed_num", (1.0, 100.00)),
+        # esp.UniformPrior("seed_duration", (1.0, 20.0)),
+        esp.TruncNormalPrior("smear_positive_death_rate", 0.389, 0.0276, (0.335, 0.449)),
+        esp.TruncNormalPrior("smear_negative_death_rate", 0.025, 0.0041, (0.017, 0.035)),
+        esp.TruncNormalPrior("smear_positive_self_recovery",0.231, 0.0276, (0.177, 0.288)),
+        esp.TruncNormalPrior("smear_negative_self_recovery", 0.130, 0.0291, (0.073, 0.209)),
+        # esp.UniformPrior("screening_scaleup_shape", (0.05, 0.5)),
         esp.UniformPrior("screening_inflection_time", (1990, 2010)),
         esp.GammaPrior.from_mode("time_to_screening_end_asymp", 1.0, 2.0),
         # esp.TruncNormalPrior("time_to_screening_end_asymp", 1.3, 0.077, (0.0, 12.8)),
         esp.UniformPrior("detection_reduction", (0.01, 0.5)),
-        esp.UniformPrior("contact_reduction", (0.01, 0.8)),
+        # esp.UniformPrior("contact_reduction", (0.01, 0.8)),
         # esp.UniformPrior("incidence_props_smear_positive_among_pulmonary", (0.1, 0.8)),
     ]
 
@@ -201,15 +201,17 @@ def plot_output_ranges(
     for a single run of interest.
 
     Args:
-        quantile_outputs: Dataframes containing derived outputs of interest for each analysis type
-        targets: Calibration targets
-        output: User-requested output of interest
-        analysis: The key for the analysis type
-        quantiles: User-requested quantiles for the patches to be plotted over
-        max_alpha: Maximum alpha value to use in patches
+        quantile_outputs: Dataframes containing derived outputs of interest for each analysis type.
+        target_data: Calibration targets.
+        indicators: List of indicators to plot.
+        quantiles: List of quantiles for the patches to be plotted over.
+        n_cols: Number of columns for the subplots.
+        plot_start_date: Start year for the plot.
+        plot_end_date: End year for the plot.
+        max_alpha: Maximum alpha value to use in patches.
 
     Returns:
-        The interactive figure
+        The interactive Plotly figure.
     """
     nrows = int(np.ceil(len(indicators) / n_cols))
     fig = get_standard_subplot_fig(
@@ -220,47 +222,151 @@ def plot_output_ranges(
             for ind in indicators
         ],
     )
+    
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
         data = quantile_outputs[ind]
+
+        # Filter data by date range
+        filtered_data = data[(data.index >= plot_start_date) & (data.index <= plot_end_date)]
+
         for q, quant in enumerate(quantiles):
-            alpha = (
-                min((q, len(quantiles) - q)) / np.floor(len(quantiles) / 2) * max_alpha
-            )
-            fill_colour = f"rgba(0,30,180,{str(alpha)})"
-            fig.add_traces(
+            if quant not in filtered_data.columns:
+                continue
+
+            alpha = min((quantiles.index(quant), len(quantiles) - quantiles.index(quant))) / (len(quantiles) / 2) * max_alpha
+            fill_color = f"rgba(0,30,180,{alpha})"
+            
+            fig.add_trace(
                 go.Scatter(
-                    x=data.index,
-                    y=data[quant],
+                    x=filtered_data.index,
+                    y=filtered_data[quant],  # Multiply by 100 as specified
                     fill="tonexty",
-                    fillcolor=fill_colour,
+                    fillcolor=fill_color,
                     line={"width": 0},
-                    name=quant,
+                    name=f'{quant}',
                 ),
-                rows=row,
-                cols=col,
-            )
-        fig.add_traces(
-            go.Scatter(
-                x=data.index, y=data[0.5], line={"color": "black"}, name="median"
-            ),
-            rows=row,
-            cols=col,
-        )
-        if ind in target_data.keys():
-            target = target_data[ind]
-            marker_format = {
-                "size": 5.0,
-                "color": "rgba(250, 135, 206, 0.2)",
-                "line": {"width": 1.0},
-            }
-            fig.add_traces(
-                go.Scatter(
-                    x=target.index, y=target, mode="markers", marker=marker_format
-                ),
-                rows=row,
-                cols=col,
+                row=row,
+                col=col,
             )
 
-    fig.update_xaxes(range=[plot_start_date, plot_end_date])
-    return fig.update_layout(yaxis4={"range": [0.0, 2.5]}, showlegend=False)
+        # Plot the median line
+        if 0.5 in filtered_data.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=filtered_data.index,
+                    y=filtered_data[0.5],  # Multiply by 100 as specified
+                    line={"color": "black"},
+                    name='median',
+                ),
+                row=row,
+                col=col,
+            )
+
+        # Plot the target data
+        if ind in target_data.keys():
+            target = target_data[ind]
+            filtered_target = target[(target.index >= plot_start_date) & (target.index <= plot_end_date)]
+            fig.add_trace(
+                go.Scatter(
+                    x=filtered_target.index,
+                    y=filtered_target,  # Multiply by 100 as specified
+                    mode="markers",
+                    marker={"size": 5.0, "color": "rgba(250, 135, 206, 0.2)", "line": {"width": 1.0}},
+                    name='target',
+                ),
+                row=row,
+                col=col,
+            )
+
+        # Update x-axis range to fit the filtered data
+        x_min = filtered_data.index.min()
+        x_max = filtered_data.index.max()
+        fig.update_xaxes(range=[x_min, x_max], row=row, col=col)
+
+        # Update y-axis range dynamically for each subplot
+        y_min = min(filtered_data.min().min(), filtered_target.min() if ind in target_data.keys() else float('inf'))
+        y_max = max(filtered_data.max().max(), filtered_target.max() if ind in target_data.keys() else float('-inf'))
+        y_range = y_max - y_min
+        padding = 0.1 * y_range
+        fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
+      
+
+    # Update layout for the whole figure
+    fig.update_layout(
+        title='',
+        xaxis_title='',
+        yaxis_title='',
+        showlegend=False
+    )
+
+    return fig
+
+def plot_quantiles_for_case_notifications(
+    quantile_df: pd.DataFrame,  # Directly pass the DataFrame
+    case_notifications: pd.Series,
+    quantiles: List[float],
+    plot_start_date: int = 2010,
+    plot_end_date: int = 2020,  # Adjust end date based on your data
+    max_alpha: float = 0.7
+) -> go.Figure:
+    """Plot the case notification rates divided by quantiles.
+
+    Args:
+        quantile_df: DataFrame containing quantile outputs for case notifications.
+        case_notifications: Case notification rates as a Pandas Series.
+        quantiles: List of quantiles to plot.
+        plot_start_date: Start year for the plot.
+        plot_end_date: End year for the plot.
+        max_alpha: Maximum alpha value for the fill color.
+
+    Returns:
+        The interactive Plotly figure.
+    """
+    # Prepare plot
+    fig = go.Figure()
+
+    # Ensure the index of quantile_df matches the years in case_notifications
+    data_aligned = quantile_df.reindex(case_notifications.index)
+    
+    # Plot quantiles
+    for quant in quantiles:
+        if quant in quantile_df.columns:
+            alpha = min((quantiles.index(quant), len(quantiles) - quantiles.index(quant))) / (len(quantiles) / 2) * max_alpha
+            fill_color = f"rgba(0,30,180,{alpha})"
+            
+            # Divide notification values by quantile values and multiply by 100
+            division_result = (case_notifications / data_aligned[quant] ) * 100
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=case_notifications.index,
+                    y=division_result,
+                    fill="tonexty",
+                    fillcolor=fill_color,
+                    line={"width": 0},
+                    name=f'Quantile {quant}'
+                )
+            )
+
+    # Add median line
+    if 0.500 in quantile_df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=case_notifications.index,
+                y=(case_notifications / quantile_df[0.500].reindex(case_notifications.index)) * 100,
+                line={"color": "black"},
+                name='Median'
+            )
+        )
+
+    # Update layout and axis
+    fig.update_layout(
+        title='Case Notification Rates Divided by Quantiles',
+        xaxis_title='Year',
+        yaxis_title='Division Result (%)',  # Updated y-axis title
+        xaxis=dict(range=[plot_start_date, plot_end_date]),
+        showlegend=True
+    )
+
+    return fig
