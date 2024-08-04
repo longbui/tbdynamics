@@ -97,20 +97,17 @@ def get_targets() -> List:
     - list: A list of Target instances.
     """
     target_data = load_targets()
-    # notif_dispersion = esp.UniformPrior("notif_dispersion", (2000.0, 15000.0))
-    # prev_dispersion = esp.UniformPrior("prev_dispersion", (5.0, 100.0))
-    # smear_prev_dispersion = esp.UniformPrior("smear_prev_dispersion", (1.0, 30.0))
     return [
         est.NormalTarget(
             "total_population", target_data["total_population"], stdev=100000.0
         ),
         est.NormalTarget("notification", target_data["notification"], 4000.0),
-        # est.NormalTarget(
-        #     "adults_prevalence_pulmonary",
-        #     target_data["adults_prevalence_pulmonary"],
-        #     stdev=prev_dispersion
-        # ),
-        # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], smear_prev_dispersion),
+        est.NormalTarget(
+            "adults_prevalence_pulmonary",
+            target_data["adults_prevalence_pulmonary"],
+            stdev=50.0
+        ),
+        est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], 15.0),
     ]
 
 
