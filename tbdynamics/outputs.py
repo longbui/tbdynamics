@@ -107,11 +107,6 @@ def request_model_outputs(
     # notification
     notif = model.request_output_for_flow("notification", "detection")
     #case notification rate:
-    # targets = load_targets()
-    # notif = targets['notification'].to_numpy()
-    # # print(notif)
-    # # print('----')
-    # # print(incidence_raw)
     model.request_function_output("case_notification_rate", notif / incidence_raw * 100)
 
     # Request proportion of each compartment in the total population
