@@ -60,7 +60,7 @@ def get_all_priors() -> List:
         All the priors used under any analyses
     """
     return [
-        esp.TruncNormalPrior("contact_rate",  0.0245, 0.0094, (0.001, 0.05)),
+        esp.UniformPriorPrior("contact_rate", (0.001, 0.05)),
         # esp.UniformPrior("start_population_size", (2000000.0, 3000000.0)),
         esp.BetaPrior("rr_infection_latent", 3.0, 8.0), 
         esp.BetaPrior("rr_infection_recovered", 2.0, 2.0),
@@ -107,7 +107,6 @@ def get_targets() -> List:
             target_data["adults_prevalence_pulmonary"],
             stdev=50.0
         ),
-        est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive"], 15.0),
     ]
 
 
