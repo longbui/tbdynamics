@@ -3,7 +3,6 @@ from typing import List
 from summer2.functions.time import get_linear_interpolation_function
 from summer2.parameters import Function, Parameter, Time, DerivedOutput
 from tbdynamics.utils import tanh_based_scaleup
-from tbdynamics.inputs import load_targets
 import numpy as np
 
 
@@ -106,6 +105,12 @@ def request_model_outputs(
 
     # notification
     notif = model.request_output_for_flow("notification", "detection")
+    extra_notif = model.request_output_for_flow(
+        name="extra_notification",
+        flow_name="detection",
+        source_strata={"organ": "extrapulmonary"},
+    )
+    model.request_function_output("extra_notif_perc", extra_notif / notif * 100)
     #case notification rate:
     model.request_function_output("case_notification_rate", notif / incidence_raw * 100)
 
@@ -146,6 +151,7 @@ def request_model_outputs(
             DerivedOutput(f"total_infectiousXorgan_{organ_stratum}")
             / DerivedOutput("infectious_population_size"),
         )
+
     # Request adults smear_positive
     adults_smear_positive = [
         f"total_infectiousXorgan_smear_positiveXage_{adults_stratum}"
