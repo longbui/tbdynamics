@@ -2,8 +2,8 @@ total_population:
   2019: 96484000
 
 notification: #from https://www.who.int/teams/global-tuberculosis-programme/tb-reports/global-tuberculosis-report-2023/tb-diagnosis---treatment/2-1-case-notifications
-  2010: 99022
-  2011: 100518
+  # 2010: 99022
+  # 2011: 100518
   2012: 103906
   2013: 102196
   2014: 102087
@@ -18,16 +18,13 @@ notification: #from https://www.who.int/teams/global-tuberculosis-programme/tb-r
 
 
 prop_smear_positive:
-  2022: 0.83
+  2022: 83.0
 
 incidence:
   2022: 176.0
 
 percentage_latent:
   2019: 43.0
-
-adults_prevalence_pulmonary: 
-  2017: 322.0
 
 mortality_raw:
   2018: 13850.0
@@ -48,4 +45,7 @@ case_notification_rate:
   2022: 60.0
 
 prevalence_smear_positive:
-  2017: 46.0
+  2007: [99.0, 78.0, 125.0]
+  2017: [46.0, 32.0, 68.0]
+adults_prevalence_pulmonary: 
+  2017: [322.0, 260.0, 399.0]

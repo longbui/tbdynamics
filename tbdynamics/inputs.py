@@ -101,9 +101,28 @@ def load_targets():
     with open(Path(__file__).resolve().parent / "targets.yml", "r") as file:
         data = yaml.safe_load(file)
 
-    # Convert the loaded YAML data to a Pandas Series (assuming the data structure allows for it)
-    # This example assumes the YAML file contains a dictionary at its root
-    return {key: pd.Series(value) for key, value in data.items()}
+    processed_targets = {}
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Check if the value for each key is a list of three items
+            if all(isinstance(v, list) and len(v) == 3 for v in value.values()):
+                # Handle as [target, lower_bound, upper_bound]
+                target = pd.Series({k: v[0] for k, v in value.items()})
+                lower_bound = pd.Series({k: v[1] for k, v in value.items()})
+                upper_bound = pd.Series({k: v[2] for k, v in value.items()})
+
+                processed_targets[f'{key}_target'] = target
+                processed_targets[f'{key}_lower_bound'] = lower_bound
+                processed_targets[f'{key}_upper_bound'] = upper_bound
+            else:
+                # Handle as single values
+                processed_targets[key] = pd.Series(value)
+        else:
+            # Handle cases where value is not a dictionary
+            processed_targets[key] = pd.Series(value)
+
+    return processed_targets
 
 
 values = [
