@@ -21,7 +21,7 @@ prop_smear_positive:
   2022: 83.0
 
 incidence:
-  2022: 176.0
+  2022: [176.0, 121.0, 251.0]
 
 percentage_latent:
   2019: 43.0

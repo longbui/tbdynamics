@@ -26,6 +26,7 @@ def build_model(
     age_strata: List[int],
     fixed_params: Dict[str, any],
     matrix,
+    contact_covid_model: False,
 ) -> CompartmentalModel:
     """
     Builds and returns a compartmental model for epidemiological studies, incorporating
@@ -66,7 +67,7 @@ def build_model(
     model.add_universal_death_flows(
         "universal_death", 1.0
     )  # Adjusted later by age stratification
-    add_infection_flow(model)
+    add_infection_flow(model, contact_covid_model)
     add_latency_flow(model)
     # Add self-recovery flow
     model.add_transition_flow(
@@ -103,7 +104,7 @@ def build_model(
     return model
 
 
-def add_infection_flow(model: CompartmentalModel):
+def add_infection_flow(model: CompartmentalModel, contact_covid_model: False):
     """
     Adds infection flows to the model, allowing for the transition of individuals from
     specific compartments (e.g., susceptible, late latent, recovered) to the early latent
@@ -129,11 +130,13 @@ def add_infection_flow(model: CompartmentalModel):
             "rr_infection_recovered",
         ),
     ]
-    contact_rate = Parameter("contact_rate")
-    # contact_covid_reduction = get_linear_interpolation_function(
-    #     [2020,2021, 2022], [1.0, 1 - Parameter("contact_reduction"), 1.0]
-    # )
-    # contact_rate *= contact_covid_reduction
+    contact_rate = Parameter("contact_rate") * (
+        get_linear_interpolation_function(
+            [2020, 2021, 2022], [1.0, 1 - Parameter("contact_reduction"), 1.0]
+        )
+        if contact_covid_model
+        else 1.0
+    )
     for origin, modifier in infection_flows:
         process = f"infection_from_{origin}"
         modifier = Parameter(modifier) if modifier else 1.0

@@ -30,7 +30,7 @@ from scipy.stats import gaussian_kde
 pio.templates.default = "simple_white"
 
 
-def get_bcm(params=None) -> BayesianCompartmentalModel:
+def get_bcm(params=None, contact_covid_model=False) -> BayesianCompartmentalModel:
     """
     Constructs and returns a Bayesian Compartmental Model.
     Parameters:
@@ -51,13 +51,14 @@ def get_bcm(params=None) -> BayesianCompartmentalModel:
         age_strata,
         fixed_params,
         matrix,
+        contact_covid_model
     )
-    priors = get_all_priors()
+    priors = get_all_priors(contact_covid_model)
     targets = get_targets()
     return BayesianCompartmentalModel(tb_model, params, priors, targets)
 
 
-def get_all_priors() -> List:
+def get_all_priors(contact_covid_model) -> List:
     """Get all priors used in any of the analysis types.
 
     Returns:
@@ -90,6 +91,8 @@ def get_all_priors() -> List:
         esp.GammaPrior.from_mode("time_to_screening_end_asymp", 2.0, 5.0),
         esp.UniformPrior("detection_reduction", (0.01, 0.8)),
     ]
+    if contact_covid_model:
+        priors.append(esp.UniformPrior("contact_reduction", (0.01, 0.8)))
     for prior in priors:
         prior._pymc_transform_eps_scale = 0.1
     return priors
@@ -266,7 +269,7 @@ def plot_output_ranges(
             )
 
         # Handle specific indicators with uncertainty bounds
-        if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary']:
+        if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary','incidence']:
             target_series = target_data[f"{ind}_target"]
             lower_bound_series = target_data[f"{ind}_lower_bound"]
             upper_bound_series = target_data[f"{ind}_upper_bound"]
