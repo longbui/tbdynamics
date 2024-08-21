@@ -30,7 +30,7 @@ from scipy.stats import gaussian_kde
 pio.templates.default = "simple_white"
 
 
-def get_bcm(params=None, contact_covid_model=False) -> BayesianCompartmentalModel:
+def get_bcm(params, covid_effects) -> BayesianCompartmentalModel:
     """
     Constructs and returns a Bayesian Compartmental Model.
     Parameters:
@@ -51,22 +51,22 @@ def get_bcm(params=None, contact_covid_model=False) -> BayesianCompartmentalMode
         age_strata,
         fixed_params,
         matrix,
-        contact_covid_model
+        covid_effects
     )
-    priors = get_all_priors(contact_covid_model)
+    priors = get_all_priors(covid_effects)
     targets = get_targets()
     return BayesianCompartmentalModel(tb_model, params, priors, targets)
 
 
-def get_all_priors(contact_covid_model) -> List:
+def get_all_priors(covid_effects) -> List:
     """Get all priors used in any of the analysis types.
 
     Returns:
         All the priors used under any analyses
     """
     priors = [
-        esp.UniformPrior("contact_rate", (0.001, 0.05)),
-        # esp.TruncNormalPrior("contact_rate", 0.0255, 0.00817,  (0.001, 0.05)),
+        #esp.UniformPrior("contact_rate", (0.001, 0.05)),
+        esp.TruncNormalPrior("contact_rate", 0.0255, 0.00817,  (0.001, 0.05)),
         # esp.UniformPrior("start_population_size", (2000000.0, 5000000.0)),
         esp.BetaPrior("rr_infection_latent", 3.0, 8.0),
         esp.BetaPrior("rr_infection_recovered", 2.0, 2.0),
@@ -89,10 +89,11 @@ def get_all_priors(contact_covid_model) -> List:
         esp.UniformPrior("screening_scaleup_shape", (0.05, 0.5)),
         esp.TruncNormalPrior("screening_inflection_time", 2000, 3.5, (1990, 2010)),
         esp.GammaPrior.from_mode("time_to_screening_end_asymp", 2.0, 5.0),
-        esp.UniformPrior("detection_reduction", (0.01, 0.8)),
     ]
-    if contact_covid_model:
+    if covid_effects['contact_reduction']:
         priors.append(esp.UniformPrior("contact_reduction", (0.01, 0.8)))
+    if covid_effects['detection_reduction']:
+        priors.append(esp.UniformPrior("detection_reduction", (0.01, 0.8)))
     for prior in priors:
         prior._pymc_transform_eps_scale = 0.1
     return priors
