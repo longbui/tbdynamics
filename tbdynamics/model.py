@@ -100,6 +100,7 @@ def build_model(
         infectious_compartments,
         age_strata,
         organ_strata,
+        covid_effects['detection_reduction']
     )
     return model
 
@@ -132,7 +133,7 @@ def add_infection_flow(model: CompartmentalModel, contact_reduction):
     ]
     contact_rate = Parameter("contact_rate") * (
         get_linear_interpolation_function(
-            [2020, 2021, 2022], [1.0, 1 - Parameter("contact_reduction"), 1.0]
+            [2020.1, 2021, 2021.9], [1.0, 1 - Parameter("contact_reduction"), 1.0]
         )
         if contact_reduction
         else 1.0

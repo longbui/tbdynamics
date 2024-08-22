@@ -13,6 +13,7 @@ def request_model_outputs(
     infectious_compartments: List[str],
     age_strata: List[int],
     organ_strata: List[str],
+    detection_reduction
 ):
     """
     Requests various model outputs
@@ -26,15 +27,17 @@ def request_model_outputs(
         organ_strata: A list of organ strata used for stratification.
     """
     # Request total population size
-    total_population = model.request_output_for_compartments("total_population", compartments)
+    total_population = model.request_output_for_compartments(
+        "total_population", compartments
+    )
 
     # Calculate and request percentage of latent population
-    latent_population_size = model.request_output_for_compartments("latent_population_size", latent_compartments)
+    latent_population_size = model.request_output_for_compartments(
+        "latent_population_size", latent_compartments
+    )
     model.request_function_output(
         "percentage_latent",
-        100.0
-        * latent_population_size
-        / total_population,
+        100.0 * latent_population_size / total_population,
     )
     # Death
     model.request_output_for_flow("mortality_infectious_raw", "infect_death")
@@ -45,7 +48,7 @@ def request_model_outputs(
     model.request_cumulative_output(
         "cumulative_deaths",
         "mortality_raw",
-        start_time=2016.,
+        start_time=2016.0,
     )
     model.request_function_output(
         "mortality",
@@ -64,7 +67,9 @@ def request_model_outputs(
         f"infectious_sizeXorgan_{organ_stratum}"
         for organ_stratum in ["smear_positive", "smear_negative"]
     ]
-    pulmonary_pop_size = model.request_aggregate_output("pulmonary_pop_size", pulmonary_outputs)
+    pulmonary_pop_size = model.request_aggregate_output(
+        "pulmonary_pop_size", pulmonary_outputs
+    )
     model.request_function_output(
         "prevalence_pulmonary",
         1e5 * pulmonary_pop_size / total_population,
@@ -75,18 +80,12 @@ def request_model_outputs(
     )
     model.request_function_output(
         "prevalence_infectious",
-        1e5
-        * infectious_population_size
-        / total_population,
+        1e5 * infectious_population_size / total_population,
     )
 
     # incidence
-    model.request_output_for_flow(
-        "incidence_early_raw", "early_activation"
-    )
-    model.request_output_for_flow(
-        "incidence_late_raw", "late_activation"
-    )
+    model.request_output_for_flow("incidence_early_raw", "early_activation")
+    model.request_output_for_flow("incidence_late_raw", "late_activation")
 
     incidence_raw = model.request_aggregate_output(
         "incidence_raw",
@@ -98,10 +97,7 @@ def request_model_outputs(
         "incidence_raw",
         start_time=2016.0,
     )
-    model.request_function_output(
-        "incidence", 1e5 * incidence_raw / total_population
-    )
-  
+    model.request_function_output("incidence", 1e5 * incidence_raw / total_population)
 
     # notification
     notif = model.request_output_for_flow("notification", "detection")
@@ -111,7 +107,7 @@ def request_model_outputs(
         source_strata={"organ": "extrapulmonary"},
     )
     model.request_function_output("extra_notif_perc", extra_notif / notif * 100)
-    #case notification rate:
+    # case notification rate:
     model.request_function_output("case_notification_rate", notif / incidence_raw * 100)
 
     # Request proportion of each compartment in the total population
@@ -183,10 +179,13 @@ def request_model_outputs(
             1.0 / Parameter("time_to_screening_end_asymp"),
         ],
     )
-    detection_covid_reduction = get_linear_interpolation_function(
-        [2020, 2021, 2022], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]
+    detection_func *= (
+        get_linear_interpolation_function(
+            [2020.1, 2021, 2021.9], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]
+        )
+        if detection_reduction
+        else 1.0
     )
-    covid_adjusted = detection_func * detection_covid_reduction
 
-    model.add_computed_value_func("detection_rate", covid_adjusted)
+    model.add_computed_value_func("detection_rate", detection_func)
     model.request_computed_value_output("detection_rate")

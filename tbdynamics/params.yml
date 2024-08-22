@@ -26,6 +26,7 @@ incidence_props_pulmonary: 0.80
 incidence_props_smear_positive_among_pulmonary: 0.35
 prop_death_among_negative_tx_outcome: 0.0326
 time_variant_bcg_perc:
+  1986: 10.
   1990: 49.
   1991: 71.
   1992: 72.

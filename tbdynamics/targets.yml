@@ -2,8 +2,8 @@ total_population:
   2019: 96484000
 
 notification: #from https://www.who.int/teams/global-tuberculosis-programme/tb-reports/global-tuberculosis-report-2023/tb-diagnosis---treatment/2-1-case-notifications
-  # 2010: 99022
-  # 2011: 100518
+  2010: 99022
+  2011: 100518
   2012: 103906
   2013: 102196
   2014: 102087

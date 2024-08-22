@@ -65,9 +65,9 @@ def get_all_priors(covid_effects) -> List:
         All the priors used under any analyses
     """
     priors = [
-        #esp.UniformPrior("contact_rate", (0.001, 0.05)),
-        esp.TruncNormalPrior("contact_rate", 0.0255, 0.00817,  (0.001, 0.05)),
-        # esp.UniformPrior("start_population_size", (2000000.0, 5000000.0)),
+        esp.UniformPrior("contact_rate", (0.001, 0.05)),
+        # esp.TruncNormalPrior("contact_rate", 0.0255, 0.00817,  (0.001, 0.05)),
+        # esp.UniformPrior("start_population_size", (2000000.0, 4000000.0)),
         esp.BetaPrior("rr_infection_latent", 3.0, 8.0),
         esp.BetaPrior("rr_infection_recovered", 2.0, 2.0),
         esp.GammaPrior.from_mode("progression_multiplier", 1.0, 2.0),
@@ -376,7 +376,7 @@ def plot_output_ranges(
                     filtered_lower_bound,
                     filtered_upper_bound
                 ]]
-            ) if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary'] else filtered_target.max() if ind in target_data.keys() else float("-inf"),
+            ) if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary','incidence'] else filtered_target.max() if ind in target_data.keys() else float("-inf"),
         )
         y_range = y_max - y_min
         padding = 0.1 * y_range
