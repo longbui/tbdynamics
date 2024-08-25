@@ -238,5 +238,5 @@ def get_standard_subplot_fig(
     fig = make_subplots(n_rows, n_cols, subplot_titles=titles, vertical_spacing=0.08, horizontal_spacing=0.05, shared_yaxes=share_y)
     return fig.update_layout(margin={i: 25 for i in ['t', 'b', 'l', 'r']}, height=height)
 
-def calculate_cdr_adjustments(case_detection_rate, infect_death, self_recovery):
-    return case_detection_rate * (infect_death + self_recovery) / (1 - case_detection_rate)
+# def calculate_cdr_adjustments(case_detection_rate, infect_death, self_recovery):
+#     return case_detection_rate * (infect_death + self_recovery) / (1 - case_detection_rate)

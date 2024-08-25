@@ -1,6 +1,7 @@
 from estival.model import BayesianCompartmentalModel
 import estival.priors as esp
 import estival.targets as est
+from estival.sampling import tools as esamp
 import arviz as az
 import pandas as pd
 import numpy as np
@@ -17,6 +18,7 @@ from tbdynamics.constants import (
     latent_compartments,
     infectious_compartments,
     indicator_names,
+    quantiles,
 )
 from tbdynamics.utils import (
     get_row_col_for_subplots,
@@ -51,7 +53,7 @@ def get_bcm(params, covid_effects) -> BayesianCompartmentalModel:
         age_strata,
         fixed_params,
         matrix,
-        covid_effects
+        covid_effects,
     )
     priors = get_all_priors(covid_effects)
     targets = get_targets()
@@ -70,6 +72,8 @@ def get_all_priors(covid_effects) -> List:
         # esp.UniformPrior("start_population_size", (2000000.0, 4000000.0)),
         esp.BetaPrior("rr_infection_latent", 3.0, 8.0),
         esp.BetaPrior("rr_infection_recovered", 2.0, 2.0),
+        # esp.UniformPrior("rr_infection_latent", (0.2, 0.5)),
+        # esp.UniformPrior("rr_infection_recovered", (0.1, 1.0)),
         esp.GammaPrior.from_mode("progression_multiplier", 1.0, 2.0),
         # esp.UniformPrior("seed_time", (1800.0, 1840.0)),
         # esp.UniformPrior("seed_num", (1.0, 100.00)),
@@ -90,9 +94,9 @@ def get_all_priors(covid_effects) -> List:
         esp.TruncNormalPrior("screening_inflection_time", 2000, 3.5, (1990, 2010)),
         esp.GammaPrior.from_mode("time_to_screening_end_asymp", 2.0, 5.0),
     ]
-    if covid_effects['contact_reduction']:
+    if covid_effects["contact_reduction"]:
         priors.append(esp.UniformPrior("contact_reduction", (0.01, 0.8)))
-    if covid_effects['detection_reduction']:
+    if covid_effects["detection_reduction"]:
         priors.append(esp.UniformPrior("detection_reduction", (0.01, 0.8)))
     for prior in priors:
         prior._pymc_transform_eps_scale = 0.1
@@ -114,9 +118,9 @@ def get_targets() -> List:
     - list: A list of Target instances.
     """
     target_data = load_targets()
-    notif_dispersion = esp.UniformPrior("notif_dispersion", (1000.0,15000.0))
-    prev_dispersion = esp.UniformPrior("prev_dispersion", (20.0,70.0))
-    sptb_dispersion = esp.UniformPrior("sptb_dispersion", (5.0,30.0))
+    notif_dispersion = esp.UniformPrior("notif_dispersion", (1000.0, 15000.0))
+    prev_dispersion = esp.UniformPrior("prev_dispersion", (20.0, 70.0))
+    # sptb_dispersion = esp.UniformPrior("sptb_dispersion", (5.0,30.0))
     return [
         est.NormalTarget(
             "total_population", target_data["total_population"], stdev=100000.0
@@ -125,9 +129,9 @@ def get_targets() -> List:
         est.NormalTarget(
             "adults_prevalence_pulmonary",
             target_data["adults_prevalence_pulmonary_target"],
-            prev_dispersion
+            prev_dispersion,
         ),
-        est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive_target"], sptb_dispersion),
+        # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive_target"], sptb_dispersion),
     ]
 
 
@@ -191,7 +195,6 @@ def plot_output_ranges(
     quantile_outputs: Dict[str, pd.DataFrame],
     target_data: Dict[str, pd.Series],
     indicators: List[str],
-    quantiles: List[float],
     n_cols: int,
     plot_start_date: int = 1800,
     plot_end_date: int = 2023,
@@ -270,19 +273,26 @@ def plot_output_ranges(
             )
 
         # Handle specific indicators with uncertainty bounds
-        if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary','incidence']:
+        if ind in [
+            "prevalence_smear_positive",
+            "adults_prevalence_pulmonary",
+            "incidence",
+        ]:
             target_series = target_data[f"{ind}_target"]
             lower_bound_series = target_data[f"{ind}_lower_bound"]
             upper_bound_series = target_data[f"{ind}_upper_bound"]
 
             filtered_target = target_series[
-                (target_series.index >= plot_start_date) & (target_series.index <= plot_end_date)
+                (target_series.index >= plot_start_date)
+                & (target_series.index <= plot_end_date)
             ]
             filtered_lower_bound = lower_bound_series[
-                (lower_bound_series.index >= plot_start_date) & (lower_bound_series.index <= plot_end_date)
+                (lower_bound_series.index >= plot_start_date)
+                & (lower_bound_series.index <= plot_end_date)
             ]
             filtered_upper_bound = upper_bound_series[
-                (upper_bound_series.index >= plot_start_date) & (upper_bound_series.index <= plot_end_date)
+                (upper_bound_series.index >= plot_start_date)
+                & (upper_bound_series.index <= plot_end_date)
             ]
 
             # Plot the target point estimates with round markers
@@ -303,9 +313,12 @@ def plot_output_ranges(
                 fig.add_trace(
                     go.Scatter(
                         x=[date, date],
-                        y=[filtered_lower_bound.loc[date], filtered_upper_bound.loc[date]],
+                        y=[
+                            filtered_lower_bound.loc[date],
+                            filtered_upper_bound.loc[date],
+                        ],
                         mode="lines",
-                        line={"color": "black", "width": 1.0},
+                        line={"color": "black", "width": 0.5, "dash": "dash"},
                         showlegend=False,
                     ),
                     row=row,
@@ -351,10 +364,7 @@ def plot_output_ranges(
                         x=filtered_target.index,
                         y=filtered_target,
                         mode="markers",
-                        marker={
-                            "size": 5.0,
-                            "color": "black"
-                        },
+                        marker={"size": 5.0, "color": "black"},
                         name="",  # No name
                     ),
                     row=row,
@@ -370,13 +380,29 @@ def plot_output_ranges(
         y_min = 0
         y_max = max(
             filtered_data.max().max(),
-            max(
-                [filtered_target.max() for filtered_target in [
-                    filtered_target,
-                    filtered_lower_bound,
-                    filtered_upper_bound
-                ]]
-            ) if ind in ['prevalence_smear_positive', 'adults_prevalence_pulmonary','incidence'] else filtered_target.max() if ind in target_data.keys() else float("-inf"),
+            (
+                max(
+                    [
+                        filtered_target.max()
+                        for filtered_target in [
+                            filtered_target,
+                            filtered_lower_bound,
+                            filtered_upper_bound,
+                        ]
+                    ]
+                )
+                if ind
+                in [
+                    "prevalence_smear_positive",
+                    "adults_prevalence_pulmonary",
+                    "incidence",
+                ]
+                else (
+                    filtered_target.max()
+                    if ind in target_data.keys()
+                    else float("-inf")
+                )
+            ),
         )
         y_range = y_max - y_min
         padding = 0.1 * y_range
@@ -386,6 +412,7 @@ def plot_output_ranges(
     fig.update_layout(xaxis_title="", yaxis_title="", showlegend=False)
 
     return fig
+
 
 def plot_case_notifications(
     quantile_df: pd.DataFrame,  # DataFrame containing quantile outputs
@@ -647,3 +674,364 @@ def plot_trace(idata: az.data.inference_data.InferenceData, params_name: dict):
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_output_ranges_for_scenarios(
+    params: Dict[str, float],
+    idata: az.InferenceData,
+    target_data: Dict[str, pd.Series],
+    indicators: List[str],
+    n_cols: int,
+    plot_start_date: int = 1800,
+    plot_end_date: int = 2023,
+    max_alpha: float = 0.7,
+) -> go.Figure:
+    """Plot the credible intervals with subplots for each output across two scenarios.
+
+    Args:
+        params: Dictionary containing model parameters.
+        idata: InferenceData object containing the model data.
+        target_data: Calibration targets.
+        indicators: List of indicators to plot.
+        n_cols: Number of columns for the subplots.
+        plot_start_date: Start year for the plot.
+        plot_end_date: End year for the plot.
+        max_alpha: Maximum alpha value to use in patches.
+
+    Returns:
+        The interactive Plotly figure.
+    """
+
+    # Define the two covid_effects scenarios
+    covid_scenarios = [
+        {"detection_reduction": True, "contact_reduction": True},
+        {"detection_reduction": True, "contact_reduction": False},
+    ]
+    scenario_labels = ["Both Reductions", "Detection Reduction Only"]
+    colors = [
+        "rgba(0,30,180,{alpha})",
+        "rgba(180,30,180,{alpha})",
+    ]  # Light purple for the second scenario
+
+    nrows = int(np.ceil(len(indicators) / n_cols))
+    fig = get_standard_subplot_fig(
+        nrows,
+        n_cols,
+        [
+            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
+            for ind in indicators
+        ],
+    )
+
+    for scenario_idx, covid_effects in enumerate(covid_scenarios):
+        # Create bcm and run the model for the current covid_effects scenario
+        bcm = get_bcm(params, covid_effects)
+        idata_extract = az.extract(idata, num_samples=500)
+        spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
+        quantile_outputs = esamp.quantiles_for_results(spaghetti_res.results, quantiles)
+
+        for i, ind in enumerate(indicators):
+            row, col = get_row_col_for_subplots(i, n_cols)
+            data = quantile_outputs[ind]
+
+            # Filter data by date range
+            filtered_data = data[
+                (data.index >= plot_start_date) & (data.index <= plot_end_date)
+            ]
+
+            for q, quant in enumerate(quantiles):
+                if quant not in filtered_data.columns:
+                    continue
+
+                alpha = (
+                    min(
+                        (
+                            quantiles.index(quant),
+                            len(quantiles) - quantiles.index(quant),
+                        )
+                    )
+                    / (len(quantiles) / 2)
+                    * max_alpha
+                )
+                fill_color = colors[scenario_idx].format(alpha=alpha)
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_data.index,
+                        y=filtered_data[quant],
+                        fill="tonexty",
+                        fillcolor=fill_color,
+                        line={"width": 0},
+                        name=f"{scenario_labels[scenario_idx]} - {quant}",
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+            # Plot the median line for the current scenario
+            if 0.5 in filtered_data.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_data.index,
+                        y=filtered_data[0.5],
+                        line={"color": colors[scenario_idx].replace("{alpha}", "1.0")},
+                        name=f"{scenario_labels[scenario_idx]} - Median",
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+            # Handle specific indicators with uncertainty bounds
+            if ind in [
+                "prevalence_smear_positive",
+                "adults_prevalence_pulmonary",
+                "incidence",
+            ]:
+                target_series = target_data[f"{ind}_target"]
+                lower_bound_series = target_data[f"{ind}_lower_bound"]
+                upper_bound_series = target_data[f"{ind}_upper_bound"]
+
+                filtered_target = target_series[
+                    (target_series.index >= plot_start_date)
+                    & (target_series.index <= plot_end_date)
+                ]
+                filtered_lower_bound = lower_bound_series[
+                    (lower_bound_series.index >= plot_start_date)
+                    & (lower_bound_series.index <= plot_end_date)
+                ]
+                filtered_upper_bound = upper_bound_series[
+                    (upper_bound_series.index >= plot_start_date)
+                    & (upper_bound_series.index <= plot_end_date)
+                ]
+
+                # Plot the target point estimates with round markers
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_target.index,
+                        y=filtered_target.values,
+                        mode="markers",
+                        marker={"size": 5.0, "color": "black", "line": {"width": 0.8}},
+                        name="",  # No name
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+                # Plot the vertical solid lines for uncertainties connecting upper and lower bounds
+                for date in filtered_target.index:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[date, date],
+                            y=[
+                                filtered_lower_bound.loc[date],
+                                filtered_upper_bound.loc[date],
+                            ],
+                            mode="lines",
+                            line={"color": "black", "width": 1.0},
+                            showlegend=False,
+                        ),
+                        row=row,
+                        col=col,
+                    )
+
+                # Plot the lower bounds with dashed markers
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_lower_bound.index,
+                        y=filtered_lower_bound.values,
+                        mode="markers",
+                        marker={"size": 5.0, "color": "black", "symbol": "x"},
+                        showlegend=False,
+                    ),
+                    row=row,
+                    col=col,
+                )
+                # Plot the upper bounds with dashed markers
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_upper_bound.index,
+                        y=filtered_upper_bound.values,
+                        mode="markers",
+                        marker={"size": 5.0, "color": "black", "symbol": "x"},
+                        showlegend=False,
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+            else:
+                # For other indicators, just plot the point estimate
+                if ind in target_data.keys():
+                    target = target_data[ind]
+                    filtered_target = target[
+                        (target.index >= plot_start_date)
+                        & (target.index <= plot_end_date)
+                    ]
+
+                    # Plot the target point only if it's not a list
+                    fig.add_trace(
+                        go.Scatter(
+                            x=filtered_target.index,
+                            y=filtered_target,
+                            mode="markers",
+                            marker={"size": 5.0, "color": "black"},
+                            name="",  # No name
+                        ),
+                        row=row,
+                        col=col,
+                    )
+
+            # Update x-axis range to fit the filtered data
+            x_min = max(filtered_data.index.min(), plot_start_date)
+            x_max = filtered_data.index.max()
+            fig.update_xaxes(range=[x_min, x_max], row=row, col=col)
+
+            # Update y-axis range dynamically for each subplot
+            y_min = 0
+            y_max = max(
+                filtered_data.max().max(),
+                (
+                    max(
+                        [
+                            filtered_target.max()
+                            for filtered_target in [
+                                filtered_target,
+                                filtered_lower_bound,
+                                filtered_upper_bound,
+                            ]
+                        ]
+                    )
+                    if ind
+                    in [
+                        "prevalence_smear_positive",
+                        "adults_prevalence_pulmonary",
+                        "incidence",
+                    ]
+                    else (
+                        filtered_target.max()
+                        if ind in target_data.keys()
+                        else float("-inf")
+                    )
+                ),
+            )
+            y_range = y_max - y_min
+            padding = 0.1 * y_range
+            fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
+
+    # Update layout for the whole figure
+    fig.update_layout(xaxis_title="", yaxis_title="", showlegend=True)
+
+    return fig
+
+
+def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
+    """Plot the median differences between two scenarios with upper and lower points indicating the range from 0.025 to 0.975 quantiles for given indicators across multiple years in one plot per indicator.
+
+    Args:
+        params: Dictionary containing model parameters.
+        idata: InferenceData object containing the model data.
+        indicators: List of indicators to plot.
+        years: List of years for which to plot the data.
+        n_cols: Number of columns in the subplot layout.
+
+    Returns:
+        A Plotly figure with separate plots for each indicator, each containing horizontal bars for multiple years.
+    """
+    nrows = len(indicators)
+    fig = get_standard_subplot_fig(
+        nrows,
+        n_cols,
+        [indicator_names.get(ind, ind.replace('_', ' ')) for ind in indicators],
+        share_y=True  # Use a shared y-axis for all subplots
+    )
+
+    # Define the scenarios
+    covid_scenarios = [
+        {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
+        {"detection_reduction": True, "contact_reduction": False}  # No contact reduction
+    ]
+    # Use consistent colors per indicator
+    indicator_colors = {
+        "incidence": "rgba(0, 123, 255)",  # Blue for the first indicator
+        "deaths": "rgba(40, 167, 69)"  # Green for the second indicator
+    }
+
+    for ind_index, ind in enumerate(indicators):
+        color = indicator_colors.get(ind, 'rgba(0, 123, 255)')  # Default to blue if not specified
+        for year_index, year in enumerate(years):
+            scenario_results = []
+            for covid_effects in covid_scenarios:
+                bcm = get_bcm(params, covid_effects)
+                idata_extract = az.extract(idata, num_samples=300)
+                spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
+                quantile_outputs = esamp.quantiles_for_results(spaghetti_res.results, quantiles)
+
+                if year in quantile_outputs[ind].index:
+                    scenario_results.append(quantile_outputs[ind].loc[year])
+
+            if len(scenario_results) == 2:
+                median_diff = scenario_results[1][0.500] - scenario_results[0][0.500]
+                # lower_diff = median_diff - (scenario_results[1][0.025] - scenario_results[0][0.025])
+                # upper_diff = (scenario_results[1][0.975] - scenario_results[0][0.975]) + median_diff
+
+                # Plotting horizontal bars for the median difference for each year within the indicator's subplot
+                fig.add_trace(
+                    go.Bar(
+                        y=[year],  # Year as an integer
+                        x=[median_diff],
+                        orientation='h',
+                        marker=dict(color=color),
+                        showlegend=False  # No legend for the bar
+                    ),
+                    row=ind_index + 1,
+                    col=1
+                )
+
+                # Add line connecting the lower and upper differences, without markers
+                # fig.add_trace(
+                #     go.Scatter(
+                #         y=[year, year],  # Both points at the same y (year as an integer)
+                #         x=[lower_diff, upper_diff],  # The lower and upper points
+                #         mode='lines',  # Only lines, no markers
+                #         line=dict(color='black', width=2),  # Line style
+                #         showlegend=False  # No legend for these points
+                #     ),
+                #     row=ind_index + 1,
+                #     col=1
+                # )
+
+    # Update layout specifics
+    fig.update_layout(
+        title="",  # No title for the plot
+        yaxis_title="",  # Removing the y-axis title
+        xaxis_title="",  # Removing the x-axis title
+        barmode='group',  # Group bars by year within each subplot
+        showlegend=False,  # Remove the legend
+    )
+
+    # Apply consistent y-axis settings
+    for i in range(1, nrows + 1):
+        fig.update_yaxes(
+            tickvals=years,  # Only display the years specified in the list
+            tickformat="d",  # Ensure years are displayed as integers
+            showline=False,  # Remove the y-axis line
+            # showticklabels=False,  # Hide tick labels
+            ticks="",  # Remove tick marks
+            row=i,
+            col=1
+        )
+        fig.update_xaxes(range=[0, None], row=i, col=1)  # Ensure x-axes start at zero for clarity
+
+    # Add a vertical annotation labeled "Year"
+    fig.add_annotation(
+        text="Year",
+        xref="paper",
+        yref="paper",
+        x=-0.07,  # Position it to the left of the y-axis
+        y=0.5,  # Center it vertically in the plot
+        showarrow=False,
+        font=dict(size=14),
+        textangle=-90,  # Rotate the text to be vertical
+    )
+
+    return fig

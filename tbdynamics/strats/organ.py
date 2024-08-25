@@ -42,7 +42,7 @@ def get_organ_strat(
             1.0 / Parameter("time_to_screening_end_asymp"),
         ],
     )
-    detection_func*= (get_linear_interpolation_function([2020.1, 2021, 2021.9], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]) if detection_reduction else 1.0)
+    detection_func*= (get_linear_interpolation_function([2020.0, 2021.0, 2022.0], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]) if detection_reduction else 1.0)
 
     # Detection, self-recovery and infect death
     inf_adj, detection_adjs, infect_death_adjs, self_recovery_adjustments = {}, {}, {}, {}

@@ -57,6 +57,7 @@ params_name = {
         "screening_inflection_time" : 'Passive screening inflection time',
         "time_to_screening_end_asymp" : 'Time from active TB to be screened',
         "detection_reduction" : 'Relative reduction of screening rate during COVID-19',
-        "contact_reduction" : 'Relative reduction of contact rate during COVID-19',
-     
+        "contact_reduction" : 'Relative reduction of contact rate during COVID-19',   
 }
+
+quantiles = [0.025, 0.25, 0.5, 0.75, 0.975]
