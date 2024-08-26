@@ -19,6 +19,7 @@ from tbdynamics.constants import (
     infectious_compartments,
     indicator_names,
     quantiles,
+    covid_scenarios
 )
 from tbdynamics.utils import (
     get_row_col_for_subplots,
@@ -891,17 +892,25 @@ def plot_output_ranges_for_scenarios(
 
     return fig
 
-def calculate_diff_quantiles(params, idata, indicators, years):
+def calculate_covid_diff_quantiles(
+    params: Dict[str, float],
+    idata_extract: az.InferenceData,
+    indicators: List[str],
+    years: List[int],
+    covid_analysis: int = 1
+) -> Dict[str, Dict[str, pd.DataFrame]]:
     """
-    Run the models for both scenarios and calculate the absolute and relative differences.
+    Run the models for the specified scenarios and calculate the absolute and relative differences.
     Store the quantiles in DataFrames with years as the index and quantiles as columns.
 
     Args:
         params: Dictionary containing model parameters.
-        idata: InferenceData object containing the model data.
+        idata_extract: InferenceData object containing the model data.
         indicators: List of indicators to calculate differences for.
         years: List of years for which to calculate the differences.
-        quantiles: List of quantiles to calculate for the differences.
+        covid_analysis: Integer specifying which analysis to run (1 or 2).
+            - 1: Compare scenario 1 and scenario 0.
+            - 2: Compare scenario 2 and scenario 0.
 
     Returns:
         A dictionary containing two dictionaries:
@@ -909,35 +918,32 @@ def calculate_diff_quantiles(params, idata, indicators, years):
         - "rel": Stores DataFrames for relative differences (keyed by indicator name).
     """
 
-    # Define the scenarios
-    covid_scenarios = [
-        {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
-        {"detection_reduction": True, "contact_reduction": False}  # No contact reduction
-    ]
+    # Validate that covid_analysis is either 1 or 2
+    if covid_analysis not in [1, 2]:
+        raise ValueError("Invalid value for covid_analysis. Must be 1 or 2.")
 
-    # Run models for both scenarios
+    # Run models for the specified scenarios
     scenario_results = []
-    idata_extract = az.extract(idata, num_samples=500)
     for covid_effects in covid_scenarios:
         bcm = get_bcm(params, covid_effects)
         spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
         scenario_results.append(spaghetti_res.results)
     
+    # Calculate the differences based on the covid_analysis value
+    abs_diff = scenario_results[covid_analysis][indicators] - scenario_results[0][indicators]
+    rel_diff = abs_diff / scenario_results[0][indicators]
+
     # Calculate the differences for each indicator and store them in DataFrames
     diff_quantiles_abs = {}
     diff_quantiles_rel = {}
     for ind in indicators:
-        abs_diff = scenario_results[1][ind] - scenario_results[0][ind]
-        rel_diff = abs_diff / scenario_results[0][ind]
-
-        # Store DataFrames with years as index and quantiles as columns
         diff_quantiles_df_abs = pd.DataFrame(
-            {quantile: [abs_diff.loc[year].quantile(quantile) for year in years] for quantile in quantiles},
+            {quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years] for quantile in quantiles},
             index=years
         )
 
         diff_quantiles_df_rel = pd.DataFrame(
-            {quantile: [rel_diff.loc[year].quantile(quantile) for year in years] for quantile in quantiles},
+            {quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years] for quantile in quantiles},
             index=years
         )
 
@@ -995,7 +1001,7 @@ def plot_covid_scenarios_comparison(diff_quantiles, indicators, years, plot_type
         # Plot a single trace for all years for this indicator
         fig.add_trace(
             go.Bar(
-                y=[str(year) for year in years],  # Convert years to strings for categorical spacing
+                y=[str(int(year)) for year in years],  # Convert years to integers and then to strings
                 x=median_diffs,  # Median differences
                 orientation='h',
                 marker=dict(color=color),  # Use consistent color for each indicator
@@ -1021,17 +1027,17 @@ def plot_covid_scenarios_comparison(diff_quantiles, indicators, years, plot_type
         showlegend=False,  # Remove the legend
     )
 
-    # Apply consistent y-axis settings with equal spacing between years
+    # Apply consistent y-axis settings with reversed year order
     for i in range(1, nrows + 1):
         fig.update_yaxes(
-            tickvals=[str(year) for year in years],  # Treat years as categorical for equal spacing
+            tickvals=[str(int(year)) for year in reversed(years)],  # Reverse and format years as integers
             tickformat="d",  # Ensure years are displayed as integers
             showline=False,  # Remove the y-axis line
             ticks="",  # Remove tick marks
             row=i,
             col=1,
-            categoryorder='array',  # Preserve the order of years provided
-            categoryarray=[str(year) for year in years],  # Ensure the provided order is followed
+            categoryorder='array',  # Preserve the reversed order of years
+            categoryarray=[str(int(year)) for year in reversed(years)],  # Ensure the provided reversed order is followed
         )
         fig.update_xaxes(range=[0, None], row=i, col=1)  # Ensure x-axes start at zero for clarity
 
@@ -1048,4 +1054,6 @@ def plot_covid_scenarios_comparison(diff_quantiles, indicators, years, plot_type
     )
 
     return fig
+
+
 

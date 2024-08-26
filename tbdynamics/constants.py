@@ -41,23 +41,29 @@ indicator_names = {
     "mortality_raw": "TB deaths",
     "adults_prevalence_pulmonary": "Prevalence of adults pulmonary TB (per 100,000)",
     "prevalence_smear_positive": "Prevalence of adults smear positive pulmonary TB (per 100,000)",
-    "detection_rate": "Screening profile"
+    "detection_rate": "Screening profile",
 }
 
 params_name = {
-        "contact_rate" : "Transmission scaling factor",
-        "rr_infection_latent" : 'Relative risk of infection for individuals with latent infection (ref. Infection-naive)',
-        "rr_infection_recovered" : 'Relative risk of infection for individuals with history of infection (ref. Infection - naive)',
-        "progression_multiplier" : 'Uncertainty multiplier for the rates of TB progression',
-        "smear_positive_death_rate" : 'Smear positive TB death rate',
-        "smear_negative_death_rate" : 'Smear negative TB death rate',
-        "smear_positive_self_recovery" : 'Smear positive TB self-recovery rate',
-        "smear_negative_self_recovery" : 'Smear negative TB self-recovery rate',
-        "screening_scaleup_shape" : 'Passive screening shape',
-        "screening_inflection_time" : 'Passive screening inflection time',
-        "time_to_screening_end_asymp" : 'Time from active TB to be screened',
-        "detection_reduction" : 'Relative reduction of screening rate during COVID-19',
-        "contact_reduction" : 'Relative reduction of contact rate during COVID-19',   
+    "contact_rate": "Transmission scaling factor",
+    "rr_infection_latent": "Relative risk of infection for individuals with latent infection (ref. Infection-naive)",
+    "rr_infection_recovered": "Relative risk of infection for individuals with history of infection (ref. Infection - naive)",
+    "progression_multiplier": "Uncertainty multiplier for the rates of TB progression",
+    "smear_positive_death_rate": "Smear positive TB death rate",
+    "smear_negative_death_rate": "Smear negative TB death rate",
+    "smear_positive_self_recovery": "Smear positive TB self-recovery rate",
+    "smear_negative_self_recovery": "Smear negative TB self-recovery rate",
+    "screening_scaleup_shape": "Passive screening shape",
+    "screening_inflection_time": "Passive screening inflection time",
+    "time_to_screening_end_asymp": "Time from active TB to be screened",
+    "detection_reduction": "Relative reduction of screening rate during COVID-19",
+    "contact_reduction": "Relative reduction of contact rate during COVID-19",
 }
 
 quantiles = [0.025, 0.25, 0.5, 0.75, 0.975]
+
+covid_scenarios = [
+    {"detection_reduction": False, "contact_reduction": False},  # No reduction
+    {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
+    {"detection_reduction": True, "contact_reduction": False},  # No contact reduction
+]
