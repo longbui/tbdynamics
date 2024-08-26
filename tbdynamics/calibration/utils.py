@@ -272,7 +272,7 @@ def plot_output_ranges(
                 col=col,
             )
 
-        # Handle specific indicators with uncertainty bounds
+        # Plot the point estimates with error bars for indicators with uncertainty bounds
         if ind in [
             "prevalence_smear_positive",
             "adults_prevalence_pulmonary",
@@ -295,77 +295,44 @@ def plot_output_ranges(
                 & (upper_bound_series.index <= plot_end_date)
             ]
 
-            # Plot the target point estimates with round markers
+            # Plot the point estimates with error bars
             fig.add_trace(
                 go.Scatter(
                     x=filtered_target.index,
                     y=filtered_target.values,
                     mode="markers",
-                    marker={"size": 5.0, "color": "black", "line": {"width": 0.8}},
-                    name="",  # No name
-                ),
-                row=row,
-                col=col,
-            )
-
-            # Plot the vertical solid lines for uncertainties connecting upper and lower bounds
-            for date in filtered_target.index:
-                fig.add_trace(
-                    go.Scatter(
-                        x=[date, date],
-                        y=[
-                            filtered_lower_bound.loc[date],
-                            filtered_upper_bound.loc[date],
-                        ],
-                        mode="lines",
-                        line={"color": "black", "width": 0.5, "dash": "dash"},
-                        showlegend=False,
+                    marker={"size": 4.0, "color": "black"},
+                    error_y=dict(
+                        type="data",
+                        symmetric=False,
+                        array=filtered_upper_bound - filtered_target,
+                        arrayminus=filtered_target - filtered_lower_bound,
+                        color="black",
+                        thickness=0.5,
+                        width=5,
                     ),
-                    row=row,
-                    col=col,
-                )
-
-            # Plot the lower bounds with dashed markers
-            fig.add_trace(
-                go.Scatter(
-                    x=filtered_lower_bound.index,
-                    y=filtered_lower_bound.values,
-                    mode="markers",
-                    marker={"size": 5.0, "color": "black", "symbol": "x"},
-                    showlegend=False,
-                ),
-                row=row,
-                col=col,
-            )
-            # Plot the upper bounds with dashed markers
-            fig.add_trace(
-                go.Scatter(
-                    x=filtered_upper_bound.index,
-                    y=filtered_upper_bound.values,
-                    mode="markers",
-                    marker={"size": 5.0, "color": "black", "symbol": "x"},
-                    showlegend=False,
+                    name="",  # No name for legend
                 ),
                 row=row,
                 col=col,
             )
 
         else:
-            # For other indicators, just plot the point estimate
+            # For other indicators, just plot the point estimate if available
             if ind in target_data.keys():
                 target = target_data[ind]
                 filtered_target = target[
                     (target.index >= plot_start_date) & (target.index <= plot_end_date)
                 ]
 
-                # Plot the target point only if it's not a list
+                # Plot the target point estimates
                 fig.add_trace(
                     go.Scatter(
                         x=filtered_target.index,
                         y=filtered_target,
                         mode="markers",
-                        marker={"size": 5.0, "color": "black"},
-                        name="",  # No name
+                        marker={"size": 4.0, "color": "black"},
+                        name="",  # No name for legend
                     ),
                     row=row,
                     col=col,
@@ -412,6 +379,7 @@ def plot_output_ranges(
     fig.update_layout(xaxis_title="", yaxis_title="", showlegend=False)
 
     return fig
+
 
 
 def plot_case_notifications(
@@ -923,15 +891,71 @@ def plot_output_ranges_for_scenarios(
 
     return fig
 
-
-def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
-    """Plot the median differences between two scenarios with upper and lower points indicating the range from 0.025 to 0.975 quantiles for given indicators across multiple years in one plot per indicator.
+def calculate_diff_quantiles(params, idata, indicators, years):
+    """
+    Run the models for both scenarios and calculate the absolute and relative differences.
+    Store the quantiles in DataFrames with years as the index and quantiles as columns.
 
     Args:
         params: Dictionary containing model parameters.
         idata: InferenceData object containing the model data.
+        indicators: List of indicators to calculate differences for.
+        years: List of years for which to calculate the differences.
+        quantiles: List of quantiles to calculate for the differences.
+
+    Returns:
+        A dictionary containing two dictionaries:
+        - "abs": Stores DataFrames for absolute differences (keyed by indicator name).
+        - "rel": Stores DataFrames for relative differences (keyed by indicator name).
+    """
+
+    # Define the scenarios
+    covid_scenarios = [
+        {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
+        {"detection_reduction": True, "contact_reduction": False}  # No contact reduction
+    ]
+
+    # Run models for both scenarios
+    scenario_results = []
+    idata_extract = az.extract(idata, num_samples=500)
+    for covid_effects in covid_scenarios:
+        bcm = get_bcm(params, covid_effects)
+        spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
+        scenario_results.append(spaghetti_res.results)
+    
+    # Calculate the differences for each indicator and store them in DataFrames
+    diff_quantiles_abs = {}
+    diff_quantiles_rel = {}
+    for ind in indicators:
+        abs_diff = scenario_results[1][ind] - scenario_results[0][ind]
+        rel_diff = abs_diff / scenario_results[0][ind]
+
+        # Store DataFrames with years as index and quantiles as columns
+        diff_quantiles_df_abs = pd.DataFrame(
+            {quantile: [abs_diff.loc[year].quantile(quantile) for year in years] for quantile in quantiles},
+            index=years
+        )
+
+        diff_quantiles_df_rel = pd.DataFrame(
+            {quantile: [rel_diff.loc[year].quantile(quantile) for year in years] for quantile in quantiles},
+            index=years
+        )
+
+        diff_quantiles_abs[ind] = diff_quantiles_df_abs
+        diff_quantiles_rel[ind] = diff_quantiles_df_rel
+
+    return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
+
+def plot_covid_scenarios_comparison(diff_quantiles, indicators, years, plot_type="abs", n_cols=1):
+    """
+    Plot the median differences with error bars indicating the range from 0.025 to 0.975 quantiles 
+    for given indicators across multiple years in one plot per indicator.
+
+    Args:
+        diff_quantiles: A dictionary containing the calculated quantile differences (output from `calculate_diff_quantiles`).
         indicators: List of indicators to plot.
         years: List of years for which to plot the data.
+        plot_type: "abs" for absolute differences, "rel" for relative differences.
         n_cols: Number of columns in the subplot layout.
 
     Returns:
@@ -945,60 +969,48 @@ def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
         share_y=True  # Use a shared y-axis for all subplots
     )
 
-    # Define the scenarios
-    covid_scenarios = [
-        {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
-        {"detection_reduction": True, "contact_reduction": False}  # No contact reduction
-    ]
-    # Use consistent colors per indicator
+    # Dictionary to store consistent colors for each indicator
     indicator_colors = {
         "incidence": "rgba(0, 123, 255)",  # Blue for the first indicator
-        "deaths": "rgba(40, 167, 69)"  # Green for the second indicator
+        "mortality_raw": "rgba(40, 167, 69)"  # Green for the second indicator
     }
 
+    # Plot the data
     for ind_index, ind in enumerate(indicators):
         color = indicator_colors.get(ind, 'rgba(0, 123, 255)')  # Default to blue if not specified
-        for year_index, year in enumerate(years):
-            scenario_results = []
-            for covid_effects in covid_scenarios:
-                bcm = get_bcm(params, covid_effects)
-                idata_extract = az.extract(idata, num_samples=300)
-                spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
-                quantile_outputs = esamp.quantiles_for_results(spaghetti_res.results, quantiles)
 
-                if year in quantile_outputs[ind].index:
-                    scenario_results.append(quantile_outputs[ind].loc[year])
+        # Ensure years are in the index
+        if not all(year in diff_quantiles[plot_type][ind].index for year in years):
+            raise ValueError(f"Some years are missing in the index for indicator: {ind}")
 
-            if len(scenario_results) == 2:
-                median_diff = scenario_results[1][0.500] - scenario_results[0][0.500]
-                # lower_diff = median_diff - (scenario_results[1][0.025] - scenario_results[0][0.025])
-                # upper_diff = (scenario_results[1][0.975] - scenario_results[0][0.975]) + median_diff
+        median_diffs = []
+        lower_diffs = []
+        upper_diffs = []
+        for year in years:
+            quantile_data = diff_quantiles[plot_type][ind].loc[year]
+            median_diffs.append(round(quantile_data[0.5]))
+            lower_diffs.append(round(quantile_data[0.025]))
+            upper_diffs.append(round(quantile_data[0.975]))
 
-                # Plotting horizontal bars for the median difference for each year within the indicator's subplot
-                fig.add_trace(
-                    go.Bar(
-                        y=[year],  # Year as an integer
-                        x=[median_diff],
-                        orientation='h',
-                        marker=dict(color=color),
-                        showlegend=False  # No legend for the bar
-                    ),
-                    row=ind_index + 1,
-                    col=1
-                )
-
-                # Add line connecting the lower and upper differences, without markers
-                # fig.add_trace(
-                #     go.Scatter(
-                #         y=[year, year],  # Both points at the same y (year as an integer)
-                #         x=[lower_diff, upper_diff],  # The lower and upper points
-                #         mode='lines',  # Only lines, no markers
-                #         line=dict(color='black', width=2),  # Line style
-                #         showlegend=False  # No legend for these points
-                #     ),
-                #     row=ind_index + 1,
-                #     col=1
-                # )
+        # Plot a single trace for all years for this indicator
+        fig.add_trace(
+            go.Bar(
+                y=[str(year) for year in years],  # Convert years to strings for categorical spacing
+                x=median_diffs,  # Median differences
+                orientation='h',
+                marker=dict(color=color),  # Use consistent color for each indicator
+                error_x=dict(
+                    type='data',
+                    symmetric=False,
+                    array=[upper - median for upper, median in zip(upper_diffs, median_diffs)],  # Upper bound error
+                    arrayminus=[median - lower for median, lower in zip(median_diffs, lower_diffs)],  # Lower bound error
+                    color=color,  # Ensure error bars are the same color
+                ),
+                showlegend=False  # No legend for the bar
+            ),
+            row=ind_index + 1,
+            col=1
+        )
 
     # Update layout specifics
     fig.update_layout(
@@ -1009,16 +1021,17 @@ def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
         showlegend=False,  # Remove the legend
     )
 
-    # Apply consistent y-axis settings
+    # Apply consistent y-axis settings with equal spacing between years
     for i in range(1, nrows + 1):
         fig.update_yaxes(
-            tickvals=years,  # Only display the years specified in the list
+            tickvals=[str(year) for year in years],  # Treat years as categorical for equal spacing
             tickformat="d",  # Ensure years are displayed as integers
             showline=False,  # Remove the y-axis line
-            # showticklabels=False,  # Hide tick labels
             ticks="",  # Remove tick marks
             row=i,
-            col=1
+            col=1,
+            categoryorder='array',  # Preserve the order of years provided
+            categoryarray=[str(year) for year in years],  # Ensure the provided order is followed
         )
         fig.update_xaxes(range=[0, None], row=i, col=1)  # Ensure x-axes start at zero for clarity
 
@@ -1027,7 +1040,7 @@ def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
         text="Year",
         xref="paper",
         yref="paper",
-        x=-0.07,  # Position it to the left of the y-axis
+        x=-0.05,  # Position it to the left of the y-axis
         y=0.5,  # Center it vertically in the plot
         showarrow=False,
         font=dict(size=14),
@@ -1035,3 +1048,4 @@ def plot_covid_scenarios_comparison(params, idata, indicators, years, n_cols=1):
     )
 
     return fig
+
