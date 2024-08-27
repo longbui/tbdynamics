@@ -15,7 +15,6 @@ from tbdynamics.utils import (
 )
 from tbdynamics.constants import indicator_names
 from .utils import convert_prior_to_numpyro
-from numpyro import distributions as dist
 
 pio.templates.default = "simple_white"
 
@@ -50,7 +49,7 @@ def plot_output_ranges(
         nrows,
         n_cols,
         [
-            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
+            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " ").capitalize())
             for ind in indicators
         ],
     )
@@ -651,12 +650,9 @@ def plot_covid_scenarios_comparison(
         [indicator_names.get(ind, ind.replace("_", " ")) for ind in indicators],
         share_y=True,  # Use a shared y-axis for all subplots
     )
-
+    colors = px.colors.qualitative.Plotly
     # Dictionary to store consistent colors for each indicator
-    indicator_colors = {
-        "incidence": "rgba(0, 123, 255)",  # Blue for the first indicator
-        "mortality_raw": "rgba(40, 167, 69)",  # Green for the second indicator
-    }
+    indicator_colors = {ind: colors[i % len(colors)] for i, ind in enumerate(indicators)}
 
     # Plot the data
     for ind_index, ind in enumerate(indicators):
@@ -803,3 +799,83 @@ def tabulate_calib_results(
     table.index = table.index.map(lambda x: params_name.get(x, x))
     table.index.name = "Parameter"
     return table
+
+def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="abs", n_cols=1):
+    """
+    Plot the quantile differences for given indicators across multiple scenarios.
+
+    Args:
+        diff_quantiles (dict): The quantile difference data structured as a dictionary.
+        indicators (list): List of indicators to plot (e.g., 'cumulative_diseased', 'cumulative_deaths').
+        plot_type (str): "abs" for absolute differences, "rel" for relative differences.
+        n_cols (int): Number of columns for the subplot layout.
+
+    Returns:
+        fig: A Plotly figure object.
+    """
+    # Mapping of scenario keys to descriptive names
+    scenario_mapping = {
+        "improved_case_detection_mul_2_0": "Increase case detection by 2.0",
+        "improved_case_detection_mul_5_0": "Increase case detection by 5.0",
+        "improved_case_detection_mul_10_0": "Increase case detection by 10.0",
+    }
+    
+    nrows = len(indicators)
+    colors = px.colors.qualitative.Plotly
+    indicator_colors = {ind: colors[i % len(colors)] for i, ind in enumerate(indicators)}
+    
+    fig = go.Figure()
+
+    for i, indicator in enumerate(indicators):
+        color = indicator_colors.get(indicator, "rgba(0, 123, 255)")
+
+        # Extract data for the given indicator and plot_type
+        scenarios = list(diff_quantiles.keys())  # Extract scenario names
+        medians = []
+        lower_errors = []
+        upper_errors = []
+
+        for scenario in scenarios:
+            median_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.500]
+            lower_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.025]
+            upper_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.975]
+
+            medians.append(median_val)
+            lower_errors.append(median_val - lower_val)
+            upper_errors.append(upper_val - median_val)
+
+        # Add trace for this indicator
+        fig.add_trace(
+            go.Bar(
+                y=[scenario_mapping.get(scenario, scenario) for scenario in scenarios],  # Descriptive scenario names
+                x=medians,  # Median values on x-axis
+                orientation="h",
+                marker=dict(color=color),
+                error_x=dict(
+                    type="data",
+                    symmetric=False,
+                    array=upper_errors,  # Upper bound error
+                    arrayminus=lower_errors,  # Lower bound error
+                    color="black",  # Black color for error bars
+                    thickness=2,  # Thicker error bars
+                    width=4,  # Wider error bars
+                ),
+                name=indicator.replace("_", " ").capitalize(),
+            )
+        )
+
+    # Update layout with tight margins
+    fig.update_layout(
+        title="",
+        xaxis_title="",
+        yaxis_title="",
+        barmode="group",
+        template="plotly_white",
+        height=300 * nrows,  # Adjust height based on the number of rows
+        margin=dict(l=40, r=40, t=40, b=40),  # Tight layout with reduced margins
+         yaxis=dict(tickangle=-45),  # Rotate y-axis labels by 45 degrees
+        legend=dict(title="", orientation="h", yanchor="top", y=1.02, xanchor="center", x=0.5),  # Horizontal legend
+    )
+
+    return fig
+
