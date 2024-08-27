@@ -27,6 +27,7 @@ def build_model(
     fixed_params: Dict[str, any],
     matrix,
     covid_effects: Dict[str, bool],
+    improved_detection_multiplier: float = None,
 ) -> CompartmentalModel:
     """
     Builds and returns a compartmental model for epidemiological studies, incorporating
@@ -91,7 +92,7 @@ def build_model(
         matrix,
     )
     model.stratify_with(age_strat)
-    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params, covid_effects['detection_reduction'])
+    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params, covid_effects['detection_reduction'], improved_detection_multiplier)
     model.stratify_with(organ_strat)
     request_model_outputs(
         model,

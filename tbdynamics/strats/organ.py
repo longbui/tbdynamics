@@ -11,6 +11,7 @@ def get_organ_strat(
     organ_strata: List[str],
     fixed_params: Dict[str, any],
     detection_reduction,
+    improved_detection_multiplier = None,
 ) -> Stratification:
     """
     Creates and configures an organ stratification for the model. This includes defining
@@ -43,6 +44,9 @@ def get_organ_strat(
         ],
     )
     detection_func*= (get_linear_interpolation_function([2020.0, 2021.0, 2022.0], [1.0, 1.0 - Parameter("detection_reduction"), 1.0]) if detection_reduction else 1.0)
+    if improved_detection_multiplier is not None:
+        assert isinstance(improved_detection_multiplier, float) and improved_detection_multiplier > 0, "improved_detection_multiplier must be a positive float."
+        detection_func *= get_linear_interpolation_function([2025.0, 2035.0], [1.0, improved_detection_multiplier])
 
     # Detection, self-recovery and infect death
     inf_adj, detection_adjs, infect_death_adjs, self_recovery_adjustments = {}, {}, {}, {}

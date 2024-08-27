@@ -240,3 +240,46 @@ def get_standard_subplot_fig(
 
 # def calculate_cdr_adjustments(case_detection_rate, infect_death, self_recovery):
 #     return case_detection_rate * (infect_death + self_recovery) / (1 - case_detection_rate)
+
+def get_future_scenario():
+    # Given lists
+    case_detection_multipliers = [2.0, 5.0, 10.0]
+    passive_screening_multipliers = [1.0, 1.0/0.75]
+    treatment_duration_multipliers = [1.0, 0.5 * 2/3]
+    treatment_success_multipliers = [1.0, 0.95/0.92]
+
+    # Helper function to format the keys
+    def format_key(value):
+        value_str = str(value)
+        if value_str.endswith('.0'):
+            value_str = value_str[:-2]  # Remove the '.0'
+        return value_str.replace('.', '_')  # Replace any '.' with '_'
+
+    # Create the scenarios dictionary
+    scenarios = {}
+
+    for case_detection in case_detection_multipliers:
+        # First combination: Same treatment (first value of each list)
+        scenario_1_same_treatment = {
+            "case_detection_multiplier": case_detection,
+            "passive_screening_multiplier": passive_screening_multipliers[0],
+            "treatment_duration_multiplier": treatment_duration_multipliers[0],
+            "treatment_success_multiplier": treatment_success_multipliers[0]
+        }
+
+        # Second combination: Improved treatment (second value of each list)
+        scenario_2_improved_treatment = {
+            "case_detection_multiplier": case_detection,
+            "passive_screening_multiplier": passive_screening_multipliers[1],
+            "treatment_duration_multiplier": treatment_duration_multipliers[1],
+            "treatment_success_multiplier": treatment_success_multipliers[1]
+        }
+
+        # Add both scenarios to the dictionary with the requested key format
+        formatted_key_1 = f"scenario_1_same_treatment_{format_key(case_detection)}"
+        formatted_key_2 = f"scenario_2_improved_treatment_{format_key(case_detection)}"
+
+        scenarios[formatted_key_1] = scenario_1_same_treatment
+        scenarios[formatted_key_2] = scenario_2_improved_treatment
+
+    return scenarios
