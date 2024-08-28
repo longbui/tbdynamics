@@ -15,7 +15,6 @@ from tbdynamics.constants import (
     quantiles
 )
 
-
 from numpyro import distributions as dist
 
 
@@ -203,7 +202,7 @@ def calculate_covid_diff_quantiles(
         {
             "detection_reduction": True,
             "contact_reduction": True,
-        },  # With contact reduction
+        },  # With detection + contact reduction
         {
             "detection_reduction": True,
             "contact_reduction": False,
@@ -247,16 +246,17 @@ def calculate_covid_diff_quantiles(
 
     return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
 
-
-def calculate_diff_improved_detection(
+def calculate_scenario_and_diff_outputs(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
     indicators: List[str],
     years: List[int],
-    detection_multipliers: List[float]
+    detection_multipliers: List[float],
+    calculate_diff: bool = True
 ) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
     """
-    Calculate the differences for the improved case detection scenarios by looping through the detection multipliers.
+    Calculate the model results for each scenario with different detection multipliers
+    and optionally compute the differences compared to a base scenario.
 
     Args:
         params: Dictionary containing model parameters.
@@ -264,60 +264,70 @@ def calculate_diff_improved_detection(
         indicators: List of indicators to calculate differences for.
         years: List of years for which to calculate the differences.
         detection_multipliers: List of multipliers for improved detection to loop through.
+        calculate_diff: Boolean to indicate whether to calculate the differences relative to the base scenario.
 
     Returns:
-        A dictionary keyed by a formatted string, containing absolute and relative differences.
+        A dictionary containing results for each scenario and optionally the differences.
     """
-
-    # Define the base scenario (without improved detection)
-    base_scenario = get_bcm(params, {"detection_reduction": True, "contact_reduction": True})
-    base_results = esamp.model_results_for_samples(idata_extract, base_scenario).results
+    # Base scenario (without improved detection)
+    bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": True})
+    base_results = esamp.model_results_for_samples(idata_extract, bcm).results
+    base_quantiles = esamp.quantiles_for_results(base_results, quantiles)
 
     # Store results for each detection multiplier
+    scenario_outputs = {"base_scenario": base_quantiles}
     detection_diff_results = {}
 
     for multiplier in detection_multipliers:
-        # Improved detection case
+        # Improved detection scenario
         bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": True}, multiplier)
-        scenario_results = esamp.model_results_for_samples(idata_extract, bcm).results
+        scenario_result = esamp.model_results_for_samples(idata_extract, bcm).results
+        scenario_quantiles = esamp.quantiles_for_results(scenario_result, quantiles)
 
-        # Calculate the differences compared to the base scenario
-        abs_diff = scenario_results[indicators] - base_results[indicators]
-        rel_diff = abs_diff / base_results[indicators]
+        # Store the results for this scenario
+        scenario_key = f"increase_case_detection_by_{multiplier}".replace(".", "_")
+        scenario_outputs[scenario_key] = scenario_quantiles
 
-        # Calculate the differences for each indicator and store them in DataFrames
-        diff_quantiles_abs = {}
-        diff_quantiles_rel = {}
+        if calculate_diff:
+            # Calculate the differences compared to the base scenario
+            abs_diff = scenario_quantiles[indicators] - base_quantiles[indicators]
+            rel_diff = abs_diff / base_quantiles[indicators]
 
-        for ind in indicators:
-            if ind not in abs_diff.columns or ind not in rel_diff.columns:
-                print(f"Warning: Indicator '{ind}' not found in the results. Skipping.")
-                continue
+            # Calculate the differences for each indicator and store them in DataFrames
+            diff_quantiles_abs = {}
+            diff_quantiles_rel = {}
 
-            diff_quantiles_df_abs = pd.DataFrame(
-                {
-                    quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
-                    for quantile in quantiles
-                },
-                index=years,
-            )
+            for ind in indicators:
+                if ind not in abs_diff.columns or ind not in rel_diff.columns:
+                    print(f"Warning: Indicator '{ind}' not found in the results. Skipping.")
+                    continue
 
-            diff_quantiles_df_rel = pd.DataFrame(
-                {
-                    quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
-                    for quantile in quantiles
-                },
-                index=years,
-            )
+                diff_quantiles_df_abs = pd.DataFrame(
+                    {
+                        quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
+                        for quantile in quantiles
+                    },
+                    index=years,
+                )
 
-            diff_quantiles_abs[ind] = diff_quantiles_df_abs
-            diff_quantiles_rel[ind] = diff_quantiles_df_rel
+                diff_quantiles_df_rel = pd.DataFrame(
+                    {
+                        quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
+                        for quantile in quantiles
+                    },
+                    index=years,
+                )
 
-        # Store the results for this detection multiplier with the formatted name
-        formatted_key = f"improved_case_detection_mul_{multiplier}".replace(".", "_")
-        detection_diff_results[formatted_key] = {
-            "abs": diff_quantiles_abs,
-            "rel": diff_quantiles_rel,
-        }
+                diff_quantiles_abs[ind] = diff_quantiles_df_abs
+                diff_quantiles_rel[ind] = diff_quantiles_df_rel
 
-    return detection_diff_results
+            detection_diff_results[scenario_key] = {
+                "abs": diff_quantiles_abs,
+                "rel": diff_quantiles_rel,
+            }
+
+    # Return the scenario outputs and, if calculated, the differences
+    return {
+        "scenario_outputs": scenario_outputs,
+        "detection_diff_results": detection_diff_results if calculate_diff else None
+    }
