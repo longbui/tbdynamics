@@ -67,3 +67,10 @@ covid_scenarios = [
     {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
     {"detection_reduction": True, "contact_reduction": False},  # No contact reduction
 ]
+
+scenario_names = {
+    'base_scenario': 'Baseline scenario',
+    'increase_case_detection_by_2_0': 'Scenario 1',
+    'increase_case_detection_by_5_0': 'Scenario 2',
+    'increase_case_detection_by_10_0': 'Scenario 3'
+}

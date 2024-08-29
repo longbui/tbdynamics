@@ -9,11 +9,8 @@ import matplotlib.colors as mcolors
 from typing import List, Dict
 
 from tbdynamics.constants import indicator_names, quantiles
-from tbdynamics.utils import (
-    get_row_col_for_subplots,
-    get_standard_subplot_fig
-)
-from tbdynamics.constants import indicator_names
+from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
+from tbdynamics.constants import indicator_names, scenario_names
 from .utils import convert_prior_to_numpyro
 
 # Define the custom template
@@ -24,20 +21,20 @@ extended_layout.update(
     xaxis=dict(
         showline=True,
         linewidth=1,
-        linecolor='black',
-        mirror=False,  # Disable mirroring to avoid double lines
+        linecolor="black",
+        mirror=True,  # Disable mirroring to avoid double lines
         ticks="outside",
     ),
     yaxis=dict(
         showline=True,
         linewidth=1,
-        linecolor='black',
-        mirror=False,  # Disable mirroring to avoid double lines
+        linecolor="black",
+        mirror=True,  # Disable mirroring to avoid double lines
         ticks="outside",
     ),
     font=dict(family="Times New Roman", size=14),
+    margin=dict(l=10, b=10),  # Set left margin to 10 pixels
 )
-
 # Create a new template using the updated layout
 custom_template = go.layout.Template(layout=extended_layout)
 # Register the custom template
@@ -52,7 +49,8 @@ def plot_output_ranges(
     indicators: List[str],
     n_cols: int,
     plot_start_date: int = 1800,
-    plot_end_date: int = 2023,
+    plot_end_date: int = 2035,
+    history: bool = False,  # New argument
     max_alpha: float = 0.7,
 ) -> go.Figure:
     """Plot the credible intervals with subplots for each output,
@@ -67,6 +65,7 @@ def plot_output_ranges(
         plot_start_date: Start year for the plot.
         plot_end_date: End year for the plot.
         max_alpha: Maximum alpha value to use in patches.
+        history: If True, set tick intervals to 50 years.
 
     Returns:
         The interactive Plotly figure.
@@ -89,9 +88,14 @@ def plot_output_ranges(
         row, col = get_row_col_for_subplots(i, n_cols)
         data = quantile_outputs[ind]
 
+        # Set plot_start_date to 2005 if the indicator is "prevalence_smear_positive"
+        current_plot_start_date = (
+            2005 if ind == "prevalence_smear_positive" else plot_start_date
+        )
+
         # Filter data by date range
         filtered_data = data[
-            (data.index >= plot_start_date) & (data.index <= plot_end_date)
+            (data.index >= current_plot_start_date) & (data.index <= plot_end_date)
         ]
 
         for q, quant in enumerate(quantiles):
@@ -142,15 +146,15 @@ def plot_output_ranges(
             upper_bound_series = target_data[f"{ind}_upper_bound"]
 
             filtered_target = target_series[
-                (target_series.index >= plot_start_date)
+                (target_series.index >= current_plot_start_date)
                 & (target_series.index <= plot_end_date)
             ]
             filtered_lower_bound = lower_bound_series[
-                (lower_bound_series.index >= plot_start_date)
+                (lower_bound_series.index >= current_plot_start_date)
                 & (lower_bound_series.index <= plot_end_date)
             ]
             filtered_upper_bound = upper_bound_series[
-                (upper_bound_series.index >= plot_start_date)
+                (upper_bound_series.index >= current_plot_start_date)
                 & (upper_bound_series.index <= plot_end_date)
             ]
 
@@ -181,7 +185,8 @@ def plot_output_ranges(
             if ind in target_data.keys():
                 target = target_data[ind]
                 filtered_target = target[
-                    (target.index >= plot_start_date) & (target.index <= plot_end_date)
+                    (target.index >= current_plot_start_date)
+                    & (target.index <= plot_end_date)
                 ]
 
                 # Plot the target point estimates
@@ -198,7 +203,7 @@ def plot_output_ranges(
                 )
 
         # Update x-axis range to fit the filtered data
-        x_min = max(filtered_data.index.min(), plot_start_date)
+        x_min = max(filtered_data.index.min(), current_plot_start_date)
         x_max = filtered_data.index.max()
         fig.update_xaxes(range=[x_min, x_max], row=row, col=col)
 
@@ -231,73 +236,20 @@ def plot_output_ranges(
             ),
         )
         y_range = y_max - y_min
-        padding = 0.1 * y_range
+        padding = 0.05 * y_range  # Consistent padding for all scenarios
         fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
+
+    tick_interval = 50 if history else 1  # Set tick interval based on history
     fig.update_xaxes(
         tickmode="linear",
         tick0=plot_start_date,
-        dtick=1,  # Set tick increment to 1 year
+        dtick=tick_interval,  # Adjust tick increment
     )
+
     # Update layout for the whole figure
     fig.update_layout(xaxis_title="", yaxis_title="", showlegend=False)
 
     return fig
-
-
-def plot_spaghetti(
-    spaghetti: pd.DataFrame,
-    indicators: List[str],
-    n_cols: int,
-    target_data: Dict,
-    plot_start_date: int = 1800,
-    plot_end_date: int = 2023,
-) -> go.Figure:
-    """Generate a spaghetti plot to compare any number of requested outputs to targets.
-
-    Args:
-        spaghetti: The values from the sampled runs
-        indicators: The names of the indicators to look at
-        n_cols: Number of columns for the figure
-        targets: The calibration targets
-
-    Returns:
-        The spaghetti plot figure object
-    """
-    nrows = int(np.ceil(len(indicators) / n_cols))
-    fig = get_standard_subplot_fig(
-        nrows,
-        n_cols,
-        [
-            (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
-            for ind in indicators
-        ],
-    )
-    for i, ind in enumerate(indicators):
-        row, col = get_row_col_for_subplots(i, n_cols)
-
-        # Model outputs
-        ind_spagh = spaghetti[ind]
-        ind_spagh.columns = ind_spagh.columns.map(lambda col: f"{col[0]}, {col[1]}")
-        fig.add_traces(px.line(ind_spagh).data, rows=row, cols=col)
-
-        # Targets
-        if ind in target_data.keys():
-            target = target_data[ind]
-            target_marker_config = dict(
-                size=5.0, line=dict(width=0.5, color="DarkSlateGrey")
-            )
-            lines = go.Scatter(
-                x=target.index,
-                y=target,
-                marker=target_marker_config,
-                name="targets",
-                mode="markers",
-            )
-            fig.add_trace(lines, row=row, col=col)
-        fig.update_layout(yaxis4=dict(range=[0, 2.2]))
-        fig.update_layout(showlegend=False)
-        fig.update_yaxes(range=None)
-    return fig.update_xaxes(range=[plot_start_date, plot_end_date])
 
 
 def plot_post_prior_comparison(idata, priors, params_name):
@@ -413,253 +365,6 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
     plt.show()
 
 
-# def plot_output_ranges_for_scenarios(
-#     params: Dict[str, float],
-#     idata: az.InferenceData,
-#     target_data: Dict[str, pd.Series],
-#     indicators: List[str],
-#     n_cols: int,
-#     plot_start_date: int = 1800,
-#     plot_end_date: int = 2023,
-#     max_alpha: float = 0.7,
-# ) -> go.Figure:
-#     """Plot the credible intervals with subplots for each output across two scenarios.
-
-#     Args:
-#         params: Dictionary containing model parameters.
-#         idata: InferenceData object containing the model data.
-#         target_data: Calibration targets.
-#         indicators: List of indicators to plot.
-#         n_cols: Number of columns for the subplots.
-#         plot_start_date: Start year for the plot.
-#         plot_end_date: End year for the plot.
-#         max_alpha: Maximum alpha value to use in patches.
-
-#     Returns:
-#         The interactive Plotly figure.
-#     """
-
-#     # Define the two covid_effects scenarios
-#     # covid_scenarios = [
-#     #     {"detection_reduction": True, "contact_reduction": True},
-#     #     {"detection_reduction": True, "contact_reduction": False},
-#     # ]
-#     # scenario_labels = ["Both Reductions", "Detection Reduction Only"]
-#     colors = [
-#         "rgba(0,30,180,{alpha})",
-#         "rgba(180,30,180,{alpha})",
-#     ]  # Light purple for the second scenario
-
-#     nrows = int(np.ceil(len(indicators) / n_cols))
-#     fig = get_standard_subplot_fig(
-#         nrows,
-#         n_cols,
-#         [
-#             (indicator_names[ind] if ind in indicator_names else ind.replace("_", " "))
-#             for ind in indicators
-#         ],
-#     )
-#     bcm = get_bcm(params, covid_effects)
-#     for scenario_idx, covid_effects in enumerate(covid_scenarios):
-#         # Create bcm and run the model for the current covid_effects scenario
-#         idata_extract = az.extract(idata, num_samples=500)
-#         spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm)
-#         quantile_outputs = esamp.quantiles_for_results(spaghetti_res.results, quantiles)
-
-#         for i, ind in enumerate(indicators):
-#             row, col = get_row_col_for_subplots(i, n_cols)
-#             data = quantile_outputs[ind]
-
-#             # Filter data by date range
-#             filtered_data = data[
-#                 (data.index >= plot_start_date) & (data.index <= plot_end_date)
-#             ]
-
-#             for q, quant in enumerate(quantiles):
-#                 if quant not in filtered_data.columns:
-#                     continue
-
-#                 alpha = (
-#                     min(
-#                         (
-#                             quantiles.index(quant),
-#                             len(quantiles) - quantiles.index(quant),
-#                         )
-#                     )
-#                     / (len(quantiles) / 2)
-#                     * max_alpha
-#                 )
-#                 fill_color = colors[scenario_idx].format(alpha=alpha)
-
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=filtered_data.index,
-#                         y=filtered_data[quant],
-#                         fill="tonexty",
-#                         fillcolor=fill_color,
-#                         line={"width": 0},
-#                         name=f"{scenario_labels[scenario_idx]} - {quant}",
-#                     ),
-#                     row=row,
-#                     col=col,
-#                 )
-
-#             # Plot the median line for the current scenario
-#             if 0.5 in filtered_data.columns:
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=filtered_data.index,
-#                         y=filtered_data[0.5],
-#                         line={"color": colors[scenario_idx].replace("{alpha}", "1.0")},
-#                         name=f"{scenario_labels[scenario_idx]} - Median",
-#                     ),
-#                     row=row,
-#                     col=col,
-#                 )
-
-#             # Handle specific indicators with uncertainty bounds
-#             if ind in [
-#                 "prevalence_smear_positive",
-#                 "adults_prevalence_pulmonary",
-#                 "incidence",
-#             ]:
-#                 target_series = target_data[f"{ind}_target"]
-#                 lower_bound_series = target_data[f"{ind}_lower_bound"]
-#                 upper_bound_series = target_data[f"{ind}_upper_bound"]
-
-#                 filtered_target = target_series[
-#                     (target_series.index >= plot_start_date)
-#                     & (target_series.index <= plot_end_date)
-#                 ]
-#                 filtered_lower_bound = lower_bound_series[
-#                     (lower_bound_series.index >= plot_start_date)
-#                     & (lower_bound_series.index <= plot_end_date)
-#                 ]
-#                 filtered_upper_bound = upper_bound_series[
-#                     (upper_bound_series.index >= plot_start_date)
-#                     & (upper_bound_series.index <= plot_end_date)
-#                 ]
-
-#                 # Plot the target point estimates with round markers
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=filtered_target.index,
-#                         y=filtered_target.values,
-#                         mode="markers",
-#                         marker={"size": 5.0, "color": "black", "line": {"width": 0.8}},
-#                         name="",  # No name
-#                     ),
-#                     row=row,
-#                     col=col,
-#                 )
-
-#                 # Plot the vertical solid lines for uncertainties connecting upper and lower bounds
-#                 for date in filtered_target.index:
-#                     fig.add_trace(
-#                         go.Scatter(
-#                             x=[date, date],
-#                             y=[
-#                                 filtered_lower_bound.loc[date],
-#                                 filtered_upper_bound.loc[date],
-#                             ],
-#                             mode="lines",
-#                             line={"color": "black", "width": 1.0},
-#                             showlegend=False,
-#                         ),
-#                         row=row,
-#                         col=col,
-#                     )
-
-#                 # Plot the lower bounds with dashed markers
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=filtered_lower_bound.index,
-#                         y=filtered_lower_bound.values,
-#                         mode="markers",
-#                         marker={"size": 5.0, "color": "black", "symbol": "x"},
-#                         showlegend=False,
-#                     ),
-#                     row=row,
-#                     col=col,
-#                 )
-#                 # Plot the upper bounds with dashed markers
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=filtered_upper_bound.index,
-#                         y=filtered_upper_bound.values,
-#                         mode="markers",
-#                         marker={"size": 5.0, "color": "black", "symbol": "x"},
-#                         showlegend=False,
-#                     ),
-#                     row=row,
-#                     col=col,
-#                 )
-
-#             else:
-#                 # For other indicators, just plot the point estimate
-#                 if ind in target_data.keys():
-#                     target = target_data[ind]
-#                     filtered_target = target[
-#                         (target.index >= plot_start_date)
-#                         & (target.index <= plot_end_date)
-#                     ]
-
-#                     # Plot the target point only if it's not a list
-#                     fig.add_trace(
-#                         go.Scatter(
-#                             x=filtered_target.index,
-#                             y=filtered_target,
-#                             mode="markers",
-#                             marker={"size": 5.0, "color": "black"},
-#                             name="",  # No name
-#                         ),
-#                         row=row,
-#                         col=col,
-#                     )
-
-#             # Update x-axis range to fit the filtered data
-#             x_min = max(filtered_data.index.min(), plot_start_date)
-#             x_max = filtered_data.index.max()
-#             fig.update_xaxes(range=[x_min, x_max], row=row, col=col)
-
-#             # Update y-axis range dynamically for each subplot
-#             y_min = 0
-#             y_max = max(
-#                 filtered_data.max().max(),
-#                 (
-#                     max(
-#                         [
-#                             filtered_target.max()
-#                             for filtered_target in [
-#                                 filtered_target,
-#                                 filtered_lower_bound,
-#                                 filtered_upper_bound,
-#                             ]
-#                         ]
-#                     )
-#                     if ind
-#                     in [
-#                         "prevalence_smear_positive",
-#                         "adults_prevalence_pulmonary",
-#                         "incidence",
-#                     ]
-#                     else (
-#                         filtered_target.max()
-#                         if ind in target_data.keys()
-#                         else float("-inf")
-#                     )
-#                 ),
-#             )
-#             y_range = y_max - y_min
-#             padding = 0.1 * y_range
-#             fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
-
-#     # Update layout for the whole figure
-#     fig.update_layout(xaxis_title="", yaxis_title="", showlegend=True)
-
-#     return fig
-
-
 def plot_covid_scenarios_comparison(
     diff_quantiles, indicators, years, plot_type="abs", n_cols=1
 ):
@@ -681,7 +386,6 @@ def plot_covid_scenarios_comparison(
     fig = get_standard_subplot_fig(
         nrows,
         n_cols,
-        # [indicator_names.get(ind, ind.replace("_", " ")).capitalize() for ind in indicators],
         [
             (
                 indicator_names[ind]
@@ -693,18 +397,15 @@ def plot_covid_scenarios_comparison(
         share_y=True,  # Use a shared y-axis for all subplots
     )
     colors = px.colors.qualitative.Plotly
-    # Dictionary to store consistent colors for each indicator
     indicator_colors = {
         ind: colors[i % len(colors)] for i, ind in enumerate(indicators)
     }
 
-    # Plot the data
     for ind_index, ind in enumerate(indicators):
         color = indicator_colors.get(
             ind, "rgba(0, 123, 255)"
         )  # Default to blue if not specified
 
-        # Ensure years are in the index
         if not all(year in diff_quantiles[plot_type][ind].index for year in years):
             raise ValueError(
                 f"Some years are missing in the index for indicator: {ind}"
@@ -719,80 +420,71 @@ def plot_covid_scenarios_comparison(
             lower_diffs.append(round(quantile_data[0.025]))
             upper_diffs.append(round(quantile_data[0.975]))
 
-        # Plot a single trace for all years for this indicator
         fig.add_trace(
             go.Bar(
-                y=[
-                    str(int(year)) for year in years
-                ],  # Convert years to integers and then to strings
+                y=[str(int(year)) for year in years],  # Convert years to strings
                 x=median_diffs,  # Median differences
                 orientation="h",
-                marker=dict(color=color),  # Use consistent color for each indicator
+                marker=dict(color=color),
                 error_x=dict(
                     type="data",
                     symmetric=False,
-                    array=[
-                        upper - median
-                        for upper, median in zip(upper_diffs, median_diffs)
-                    ],  # Upper bound error
-                    arrayminus=[
-                        median - lower
-                        for median, lower in zip(median_diffs, lower_diffs)
-                    ],  # Lower bound error
-                    color="black",  # Ensure error bars are the same color
-                    thickness=1,  # Thickness of the error lines
-                    width=2,        
+                    array=[upper - median for upper, median in zip(upper_diffs, median_diffs)],
+                    arrayminus=[median - lower for median, lower in zip(median_diffs, lower_diffs)],
+                    color="black",
+                    thickness=1.5,
+                    width=3,
                 ),
-                showlegend=False,  # No legend for the bar
+                showlegend=False,
             ),
             row=ind_index + 1,
             col=1,
         )
 
-    # Update layout specifics
     fig.update_layout(
-        title="",  # No title for the plot
-        yaxis_title="",  # Removing the y-axis title
-        xaxis_title="",  # Removing the x-axis title
-        barmode="group",  # Group bars by year within each subplot
-        showlegend=False,  # Remove the legend
+        title="",
+        yaxis_title="",
+        xaxis_title="",
+        barmode="group",
+        showlegend=False,
     )
 
-    # Apply consistent y-axis settings with reversed year order
+    # Ensure the y-axis is visible by adjusting its properties
     for i in range(1, nrows + 1):
         fig.update_yaxes(
-            tickvals=[
-                str(int(year)) for year in reversed(years)
-            ],  # Reverse and format years as integers
-            tickformat="d",  # Ensure years are displayed as integers
-            showline=False,  # Remove the y-axis line
-            ticks="",  # Remove tick marks
+            tickvals=[str(int(year)) for year in reversed(years)],
+            tickformat="d",
+            showline=True,  # Ensure the line is shown
+            linecolor="black",  # Set the color of the y-axis line
+            linewidth=1,  # Adjust the width of the y-axis line
+            mirror=True,  # Ensure the axis line is mirrored
+            ticks="outside",  # Show ticks outside the plot
             row=i,
             col=1,
-            categoryorder="array",  # Preserve the reversed order of years
-            categoryarray=[
-                str(int(year)) for year in reversed(years)
-            ],  # Ensure the provided reversed order is followed
+            categoryorder="array",
+            categoryarray=[str(int(year)) for year in reversed(years)],
         )
         fig.update_xaxes(
-            range=[0, None], row=i, col=1
+            range=[0, None], 
+            row=i, 
+            col=1
         )  # Ensure x-axes start at zero for clarity
 
-    # Add a vertical annotation labeled "Year"
     fig.add_annotation(
         text="Year",
         xref="paper",
         yref="paper",
-        x=-0.05,  # Position it to the left of the y-axis
-        y=0.5,  # Center it vertically in the plot
+        x=0.05,
+        y=0.5,
         showarrow=False,
         font=dict(size=14),
-        textangle=-90,  # Rotate the text to be vertical
+        textangle=-90,
     )
 
     return fig
 
-def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="abs"):
+
+def plot_detection_scenario_comparison_box(diff_quantiles, indicators, plot_type="abs"):
     """
     Plot the quantile differences for given indicators across multiple scenarios.
 
@@ -812,7 +504,7 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
 
     fig = go.Figure()
 
-    for i, indicator in enumerate(indicators):
+    for i, indicator in enumerate(list(reversed(indicators))):
         color = indicator_colors.get(indicator, "rgba(0, 123, 255)")
 
         # Extract data for the given indicator and plot_type
@@ -840,7 +532,10 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
         fig.add_trace(
             go.Bar(
                 y=[
-                    scenario.replace("_", " ").capitalize() for scenario in scenarios
+                    scenario_names.get(
+                        scenario, scenario.replace("_", " ").capitalize()
+                    )
+                    for scenario in scenarios
                 ],  # Descriptive scenario names
                 x=medians,  # Median values on x-axis
                 orientation="h",
@@ -851,12 +546,20 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
                     array=upper_errors,  # Upper bound error
                     arrayminus=lower_errors,  # Lower bound error
                     color="black",  # Black color for error bars
-                    thickness=2,  # Thicker error bars
-                    width=4,  # Wider error bars
+                    thickness=1.5,  # Thicker error bars
+                    width=3,  # Wider error bars
                 ),
-                name=indicator.replace("_", " ").capitalize(),
+                name=indicator.replace(
+                    "_", " "
+                ).capitalize(),  # Use indicator name for legend
             )
         )
+
+    # Ensure traces are ordered according to indicators list
+    fig.data = sorted(
+        fig.data,
+        key=lambda trace: indicators.index(trace.name.lower().replace(" ", "_")),
+    )
 
     # Update layout with tight margins and ordered legend
     fig.update_layout(
@@ -864,7 +567,6 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
         xaxis_title="",
         yaxis_title="",
         barmode="group",
-        # template="plotly_white",
         height=300 * nrows,  # Adjust height based on the number of rows
         margin=dict(
             l=40, r=40, t=40, b=80
@@ -873,14 +575,15 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
             tickangle=-45,  # Rotate y-axis labels by 45 degrees
             categoryorder="array",  # Ensure the order follows the scenarios
             categoryarray=[
-                scenario.replace("_", " ").capitalize() for scenario in scenarios
+                scenario_names.get(scenario, scenario.replace("_", " ").capitalize())
+                for scenario in reversed(scenarios)
             ],
         ),
         legend=dict(
             title="",
             orientation="h",
             yanchor="bottom",
-            y=-0.3,  # Position the legend below the plot
+            y=-0.15,  # Position the legend below the plot
             xanchor="center",
             x=0.5,
             itemsizing="constant",  # Consistent item sizing
@@ -888,22 +591,15 @@ def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="ab
         ),
     )
 
-    # Reorder traces to match the indicators list
-    fig.data = sorted(
-        fig.data,
-        key=lambda trace: indicators.index(trace.name.lower().replace(" ", "_")),
-    )
-
     return fig
 
 
 def hex_to_rgb(hex_color):
     """
-    Convert hex color (e.g., '#636EFA') to an rgb color string (e.g., 'rgb(99, 110, 250)').
+    Convert hex color (e.g., '#636EFA') to an rgb color tuple (e.g., (99, 110, 250)).
     """
-    rgb = mcolors.hex2color(hex_color)  # Convert hex to tuple of floats
-    rgb = tuple(int(255 * val) for val in rgb)  # Convert to integer RGB values
-    return f"rgb({rgb[0]}, {rgb[1]}, {rgb[2]})"
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def plot_scenario_output_ranges(
@@ -942,16 +638,30 @@ def plot_scenario_output_ranges(
         ],
     )
 
-    scenario_colors = px.colors.qualitative.Plotly  # Use Plotly colors for scenarios
+    base_color = (0, 30, 180)  # Base scenario RGB color as a tuple
     target_color = "red"  # Use a consistent color for 2035 target points
+    scenario_colors = (
+        px.colors.qualitative.Plotly
+    )  # Use Plotly colors for other scenarios
 
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
         for scenario_idx, (scenario_name, quantile_outputs) in enumerate(
             scenario_outputs.items()
         ):
-            hex_color = scenario_colors[scenario_idx % len(scenario_colors)]
-            rgb_color = hex_to_rgb(hex_color)  # Convert hex to rgb
+            display_name = scenario_names.get(
+                scenario_name, scenario_name
+            )  # Get display name
+
+            # Determine the color to use for this scenario
+            if (
+                scenario_name.lower() == "base_scenario"
+            ):  # Check if it's the base scenario
+                rgb_color = base_color
+            else:
+                hex_color = scenario_colors[scenario_idx % len(scenario_colors)]
+                rgb_color = hex_to_rgb(hex_color)  # Convert hex to RGB tuple
+
             data = quantile_outputs[ind]
 
             # Filter data by date range
@@ -976,9 +686,7 @@ def plot_scenario_output_ranges(
                     / (len(quantiles) / 2)
                     * max_alpha
                 )
-                fill_color = (
-                    f"rgba({rgb_color[4:-1]}, {alpha})"  # Adjust alpha for the fill
-                )
+                fill_color = f"rgba({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]}, {alpha})"  # Use rgba with appropriate alpha
 
                 fig.add_trace(
                     go.Scatter(
@@ -988,11 +696,11 @@ def plot_scenario_output_ranges(
                         fillcolor=fill_color,
                         line={"width": 0},
                         name=(
-                            scenario_name if quant == 0.5 and show_legend else None
+                            display_name if quant == 0.5 and show_legend else None
                         ),  # Show legend only for the first figure
                         showlegend=quant == 0.5
                         and show_legend,  # Show legend only for the first figure
-                        legendgroup=scenario_name,
+                        legendgroup=display_name,
                     ),
                     row=row,
                     col=col,
@@ -1004,11 +712,13 @@ def plot_scenario_output_ranges(
                     go.Scatter(
                         x=filtered_data.index,
                         y=filtered_data[0.5],
-                        line={"color": hex_color},
+                        line={
+                            "color": f"rgb({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]})"
+                        },
                         name=(
-                            scenario_name if show_legend else None
+                            display_name if show_legend else None
                         ),  # Show legend only for the first figure
-                        showlegend=False,  #
+                        showlegend=False,
                     ),
                     row=row,
                     col=col,
@@ -1022,7 +732,7 @@ def plot_scenario_output_ranges(
                     y=[10],
                     mode="markers+text",
                     marker=dict(size=4, color=target_color),
-                    name="2035 Target",
+                    name="2035 End TB Target",
                     showlegend=True if i == 0 else False,  # Show legend only once
                     legendgroup="Target",
                 ),
@@ -1037,7 +747,6 @@ def plot_scenario_output_ranges(
                     y=[900],
                     mode="markers+text",
                     marker=dict(size=4, color=target_color),
-                    textposition="top right",
                     showlegend=False,  # No additional legend entry for repeated points
                     legendgroup="Target",
                 ),
@@ -1055,11 +764,11 @@ def plot_scenario_output_ranges(
             title="",
             orientation="h",
             yanchor="bottom",
-            y=-0.1,  # Position the legend below the plot
+            y=-0.15,  # Position the legend below the plot
             xanchor="center",
             x=0.5,
+            font=dict(size=12),
         ),
-        template="plotly_white",
     )
 
     # Update x-axis ticks to increase by 1 year
@@ -1068,9 +777,9 @@ def plot_scenario_output_ranges(
         tick0=plot_start_date,
         dtick=1,  # Set tick increment to 1 year
     )
-    # fig.update_yaxes(tickfont=dict(color="black"))  # Set y-axis tick labels to black
 
     return fig
+
 
 def tabulate_calib_results(
     idata: az.data.inference_data.InferenceData, params_name
@@ -1124,4 +833,3 @@ def tabulate_calib_results(
     table.index = table.index.map(lambda x: params_name.get(x, x))
     table.index.name = "Parameter"
     return table
-
