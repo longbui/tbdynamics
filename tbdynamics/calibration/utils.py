@@ -14,9 +14,7 @@ from tbdynamics.constants import (
     infectious_compartments,
     quantiles
 )
-
 from numpyro import distributions as dist
-
 
 def get_bcm(params, covid_effects = None, improved_detection_multiplier = None) -> BayesianCompartmentalModel:
     """
@@ -252,7 +250,8 @@ def calculate_scenario_and_diff_outputs(
     indicators: List[str],
     years: List[int],
     detection_multipliers: List[float],
-    calculate_diff: bool = True
+    calculate_diff: bool = True, 
+    scenario_choice: int =2,
 ) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
     """
     Calculate the model results for each scenario with different detection multipliers
@@ -269,8 +268,15 @@ def calculate_scenario_and_diff_outputs(
     Returns:
         A dictionary containing results for each scenario and optionally the differences.
     """
+
+    if scenario_choice == 1:
+        scenario_config = {"detection_reduction": True, "contact_reduction": True}
+    elif scenario_choice == 2:
+        scenario_config = {"detection_reduction": True, "contact_reduction": False}
+    else:
+        raise ValueError("Invalid scenario_choice. Choose 1 or 2.")
     # Base scenario (without improved detection)
-    bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": True})
+    bcm = get_bcm(params, scenario_config)
     base_results = esamp.model_results_for_samples(idata_extract, bcm).results
     base_quantiles = esamp.quantiles_for_results(base_results, quantiles)
 
@@ -280,7 +286,7 @@ def calculate_scenario_and_diff_outputs(
 
     for multiplier in detection_multipliers:
         # Improved detection scenario
-        bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": True}, multiplier)
+        bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": False}, multiplier)
         scenario_result = esamp.model_results_for_samples(idata_extract, bcm).results
         scenario_quantiles = esamp.quantiles_for_results(scenario_result, quantiles)
 

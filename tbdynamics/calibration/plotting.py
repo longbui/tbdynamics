@@ -11,12 +11,39 @@ from typing import List, Dict
 from tbdynamics.constants import indicator_names, quantiles
 from tbdynamics.utils import (
     get_row_col_for_subplots,
-    get_standard_subplot_fig,
+    get_standard_subplot_fig
 )
 from tbdynamics.constants import indicator_names
 from .utils import convert_prior_to_numpyro
 
-pio.templates.default = "plotly_white"
+# Define the custom template
+extended_layout = pio.templates["plotly_white"].layout
+
+# Update the layout with custom settings
+extended_layout.update(
+    xaxis=dict(
+        showline=True,
+        linewidth=1,
+        linecolor='black',
+        mirror=False,  # Disable mirroring to avoid double lines
+        ticks="outside",
+    ),
+    yaxis=dict(
+        showline=True,
+        linewidth=1,
+        linecolor='black',
+        mirror=False,  # Disable mirroring to avoid double lines
+        ticks="outside",
+    ),
+    font=dict(family="Times New Roman", size=14),
+)
+
+# Create a new template using the updated layout
+custom_template = go.layout.Template(layout=extended_layout)
+# Register the custom template
+pio.templates["custom_template"] = custom_template
+# Set the custom template as the default
+pio.templates.default = "custom_template"
 
 
 def plot_output_ranges(
@@ -712,7 +739,9 @@ def plot_covid_scenarios_comparison(
                         median - lower
                         for median, lower in zip(median_diffs, lower_diffs)
                     ],  # Lower bound error
-                    color=color,  # Ensure error bars are the same color
+                    color="black",  # Ensure error bars are the same color
+                    thickness=1,  # Thickness of the error lines
+                    width=2,        
                 ),
                 showlegend=False,  # No legend for the bar
             ),
@@ -762,61 +791,6 @@ def plot_covid_scenarios_comparison(
     )
 
     return fig
-
-
-def tabulate_calib_results(
-    idata: az.data.inference_data.InferenceData, params_name
-) -> pd.DataFrame:
-    """
-    Get tabular outputs from calibration inference object,
-    except for the dispersion parameters, and standardize formatting.
-
-    Args:
-        idata: InferenceData object from ArviZ containing calibration outputs.
-        priors: List of parameter names as strings.
-
-    Returns:
-        Calibration results table in standard format.
-    """
-    # Generate summary table
-    table = az.summary(idata)
-
-    # Filter out dispersion parameters
-    table = table[~table.index.str.contains("_dispersion")]
-
-    # Round and format the relevant columns
-    for col_to_round in [
-        "mean",
-        "sd",
-        "hdi_3%",
-        "hdi_97%",
-        "ess_bulk",
-        "ess_tail",
-        "r_hat",
-    ]:
-        table[col_to_round] = table.apply(
-            lambda x: str(round(x[col_to_round], 3)), axis=1
-        )
-
-    # Create the HDI column
-    table["hdi"] = table.apply(lambda x: f'{x["hdi_3%"]} to {x["hdi_97%"]}', axis=1)
-
-    # Drop unnecessary columns
-    table = table.drop(["mcse_mean", "mcse_sd", "hdi_3%", "hdi_97%"], axis=1)
-
-    # Rename columns for standardized format
-    table.columns = [
-        "Mean",
-        "Standard deviation",
-        "ESS bulk",
-        "ESS tail",
-        "\\textit{\^{R}}",
-        "High-density interval",
-    ]
-    table.index = table.index.map(lambda x: params_name.get(x, x))
-    table.index.name = "Parameter"
-    return table
-
 
 def plot_detection_scenario_comparison(diff_quantiles, indicators, plot_type="abs"):
     """
@@ -1097,3 +1071,57 @@ def plot_scenario_output_ranges(
     # fig.update_yaxes(tickfont=dict(color="black"))  # Set y-axis tick labels to black
 
     return fig
+
+def tabulate_calib_results(
+    idata: az.data.inference_data.InferenceData, params_name
+) -> pd.DataFrame:
+    """
+    Get tabular outputs from calibration inference object,
+    except for the dispersion parameters, and standardize formatting.
+
+    Args:
+        idata: InferenceData object from ArviZ containing calibration outputs.
+        priors: List of parameter names as strings.
+
+    Returns:
+        Calibration results table in standard format.
+    """
+    # Generate summary table
+    table = az.summary(idata)
+
+    # Filter out dispersion parameters
+    table = table[~table.index.str.contains("_dispersion")]
+
+    # Round and format the relevant columns
+    for col_to_round in [
+        "mean",
+        "sd",
+        "hdi_3%",
+        "hdi_97%",
+        "ess_bulk",
+        "ess_tail",
+        "r_hat",
+    ]:
+        table[col_to_round] = table.apply(
+            lambda x: str(round(x[col_to_round], 3)), axis=1
+        )
+
+    # Create the HDI column
+    table["hdi"] = table.apply(lambda x: f'{x["hdi_3%"]} to {x["hdi_97%"]}', axis=1)
+
+    # Drop unnecessary columns
+    table = table.drop(["mcse_mean", "mcse_sd", "hdi_3%", "hdi_97%"], axis=1)
+
+    # Rename columns for standardized format
+    table.columns = [
+        "Mean",
+        "Standard deviation",
+        "ESS bulk",
+        "ESS tail",
+        "\\textit{\^{R}}",
+        "High-density interval",
+    ]
+    table.index = table.index.map(lambda x: params_name.get(x, x))
+    table.index.name = "Parameter"
+    return table
+
