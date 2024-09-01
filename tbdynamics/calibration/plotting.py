@@ -2,6 +2,7 @@ import arviz as az
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import plotly.express as px
 import plotly.io as pio
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ from tbdynamics.constants import indicator_names, scenario_names
 from .utils import convert_prior_to_numpyro
 
 # Define the custom template
-extended_layout = pio.templates["plotly_white"].layout
+extended_layout = pio.templates["simple_white"].layout
 
 # Update the layout with custom settings
 extended_layout.update(
@@ -22,19 +23,46 @@ extended_layout.update(
         showline=True,
         linewidth=1,
         linecolor="black",
-        mirror=True,  # Disable mirroring to avoid double lines
+        mirror=True,
         ticks="outside",
+        title_font=dict(
+            family="Arial Black",  # Use Arial Black for bold font
+            size=12,
+            color="black",
+        ),
+        tickfont=dict(
+            family="Arial", size=12, color="black"  # Set x-axis tick font to Arial
+        ),
     ),
     yaxis=dict(
         showline=True,
         linewidth=1,
         linecolor="black",
-        mirror=True,  # Disable mirroring to avoid double lines
+        mirror=True,
         ticks="outside",
+        title_font=dict(
+            family="Arial Black",  # Use Arial Black for bold font
+            size=12,
+            color="black",
+        ),
+        tickfont=dict(
+            family="Arial", size=12, color="black"  # Set y-axis tick font to Arial
+        ),
     ),
-    font=dict(family="Times New Roman", size=14),
-    margin=dict(l=10, b=10),  # Set left margin to 10 pixels
+    title=dict(
+        font=dict(
+            family="Arial Black",  # Use Arial Black for bold font
+            size=14,
+            color="black",
+        )
+    ),
+    font=dict(family="Arial Black", size=14),  # General font settings for the figure
+    legend=dict(
+        font=dict(family="Arial", size=12, color="black")  # Set legend font to Arial
+    ),
 )
+
+
 # Create a new template using the updated layout
 custom_template = go.layout.Template(layout=extended_layout)
 # Register the custom template
@@ -51,6 +79,7 @@ def plot_output_ranges(
     plot_start_date: int = 1800,
     plot_end_date: int = 2035,
     history: bool = False,  # New argument
+    show_title: bool = True,
     max_alpha: float = 0.7,
 ) -> go.Figure:
     """Plot the credible intervals with subplots for each output,
@@ -74,14 +103,18 @@ def plot_output_ranges(
     fig = get_standard_subplot_fig(
         nrows,
         n_cols,
-        [
-            (
-                indicator_names[ind]
-                if ind in indicator_names
-                else ind.replace("_", " ").capitalize()
-            )
-            for ind in indicators
-        ],
+        (
+            [
+                (
+                    indicator_names[ind]
+                    if ind in indicator_names
+                    else ind.replace("_", " ").capitalize()
+                )
+                for ind in indicators
+            ]
+            if show_title
+            else ["" for _ in indicators]
+        ),  # Conditionally set titles
     )
 
     for i, ind in enumerate(indicators):
@@ -247,7 +280,12 @@ def plot_output_ranges(
     )
 
     # Update layout for the whole figure
-    fig.update_layout(xaxis_title="", yaxis_title="", showlegend=False)
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title="",
+        showlegend=False,
+        margin=dict(l=10, r=5, t=30, b=40),
+    )
 
     return fig
 
@@ -429,8 +467,14 @@ def plot_covid_scenarios_comparison(
                 error_x=dict(
                     type="data",
                     symmetric=False,
-                    array=[upper - median for upper, median in zip(upper_diffs, median_diffs)],
-                    arrayminus=[median - lower for median, lower in zip(median_diffs, lower_diffs)],
+                    array=[
+                        upper - median
+                        for upper, median in zip(upper_diffs, median_diffs)
+                    ],
+                    arrayminus=[
+                        median - lower
+                        for median, lower in zip(median_diffs, lower_diffs)
+                    ],
                     color="black",
                     thickness=1.5,
                     width=3,
@@ -442,7 +486,7 @@ def plot_covid_scenarios_comparison(
         )
 
     fig.update_layout(
-        title="",
+        title="Rererence: counterfactual no COVID-19",
         yaxis_title="",
         xaxis_title="",
         barmode="group",
@@ -465,16 +509,14 @@ def plot_covid_scenarios_comparison(
             categoryarray=[str(int(year)) for year in reversed(years)],
         )
         fig.update_xaxes(
-            range=[0, None], 
-            row=i, 
-            col=1
+            range=[0, None], row=i, col=1
         )  # Ensure x-axes start at zero for clarity
 
     fig.add_annotation(
         text="Year",
         xref="paper",
         yref="paper",
-        x=0.05,
+        x=-0.05,
         y=0.5,
         showarrow=False,
         font=dict(size=14),
@@ -504,7 +546,7 @@ def plot_detection_scenario_comparison_box(diff_quantiles, indicators, plot_type
 
     fig = go.Figure()
 
-    for i, indicator in enumerate(list(reversed(indicators))):
+    for i, indicator in enumerate(list(indicators)):
         color = indicator_colors.get(indicator, "rgba(0, 123, 255)")
 
         # Extract data for the given indicator and plot_type
@@ -563,13 +605,13 @@ def plot_detection_scenario_comparison_box(diff_quantiles, indicators, plot_type
 
     # Update layout with tight margins and ordered legend
     fig.update_layout(
-        title="",
+        title={"text": "Reference: Status-quo scenario", "x": 0.5},
         xaxis_title="",
         yaxis_title="",
         barmode="group",
-        height=300 * nrows,  # Adjust height based on the number of rows
+        height=320,  # Adjust height based on the number of rows
         margin=dict(
-            l=40, r=40, t=40, b=80
+            l=20, r=5, t=40, b=40
         ),  # Tight layout with more bottom margin for legend
         yaxis=dict(
             tickangle=-45,  # Rotate y-axis labels by 45 degrees
@@ -583,13 +625,120 @@ def plot_detection_scenario_comparison_box(diff_quantiles, indicators, plot_type
             title="",
             orientation="h",
             yanchor="bottom",
-            y=-0.15,  # Position the legend below the plot
+            y=-0.3,  # Position the legend below the plot
             xanchor="center",
             x=0.5,
             itemsizing="constant",  # Consistent item sizing
-            traceorder="reversed",  # Keep the legend order as per the traces added
+            traceorder="normal",  # Keep the legend order as per the traces added
         ),
     )
+
+    return fig
+
+
+def plot_covid_scenarios_comparison_combined(
+    diff_quantiles, indicators, years, plot_type="abs", n_cols=1
+):
+    """
+    Plot the median differences with error bars indicating the range from 0.025 to 0.975 quantiles
+    for given indicators across multiple years in a single plot.
+
+    Args:
+        diff_quantiles: A dictionary containing the calculated quantile differences (output from `calculate_diff_quantiles`).
+        indicators: List of indicators to plot.
+        years: List of years for which to plot the data.
+        plot_type: "abs" for absolute differences, "rel" for relative differences.
+        n_cols: (Deprecated) No longer relevant since all indicators are plotted in one plot.
+
+    Returns:
+        A Plotly figure with all indicators plotted together, each containing horizontal bars for multiple years.
+    """
+    fig = go.Figure()
+    colors = px.colors.qualitative.Plotly
+    indicator_colors = {
+        ind: colors[i % len(colors)] for i, ind in enumerate(indicators)
+    }
+
+    for ind in indicators:
+        color = indicator_colors.get(
+            ind, "rgba(0, 123, 255)"
+        )  # Default to blue if not specified
+
+        if not all(year in diff_quantiles[plot_type][ind].index for year in years):
+            raise ValueError(
+                f"Some years are missing in the index for indicator: {ind}"
+            )
+
+        median_diffs = []
+        lower_diffs = []
+        upper_diffs = []
+        for year in years:
+            quantile_data = diff_quantiles[plot_type][ind].loc[year]
+            median_diffs.append(round(quantile_data[0.5]))
+            lower_diffs.append(round(quantile_data[0.025]))
+            upper_diffs.append(round(quantile_data[0.975]))
+
+        fig.add_trace(
+            go.Bar(
+                y=[str(int(year)) for year in years],  # Convert years to strings
+                x=median_diffs,  # Median differences
+                orientation="h",
+                name=indicator_names.get(ind, ind.replace("_", " ").capitalize()),
+                marker=dict(color=color),
+                error_x=dict(
+                    type="data",
+                    symmetric=False,
+                    array=[
+                        upper - median
+                        for upper, median in zip(upper_diffs, median_diffs)
+                    ],
+                    arrayminus=[
+                        median - lower
+                        for median, lower in zip(median_diffs, lower_diffs)
+                    ],
+                    color="black",
+                    thickness=1.5,
+                    width=3,
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title={
+            "text": "Reference: Counterfactual no COVID-19",
+            "x": 0.5,
+            # 'y': 0.95,
+            "xanchor": "center",
+            "yanchor": "top",
+        },
+        yaxis_title="",
+        xaxis_title="",
+        height=320,
+        barmode="group",
+        showlegend=True,
+        legend=dict(
+            orientation="h",  # Horizontal orientation for the legend
+            yanchor="bottom",  # Anchor the legend at the bottom
+            y=-0.3,  # Move the legend below the x-axis
+            xanchor="center",  # Center the legend horizontally
+            x=0.5,
+        ),
+        margin=dict(l=20, r=5, t=40, b=40),
+    )
+
+    # Ensure the y-axis is visible by adjusting its properties
+    fig.update_yaxes(
+        tickvals=[str(int(year)) for year in reversed(years)],
+        tickformat="d",
+        showline=True,  # Ensure the line is shown
+        linecolor="black",  # Set the color of the y-axis line
+        linewidth=1,  # Adjust the width of the y-axis line
+        mirror=True,  # Ensure the axis line is mirrored
+        ticks="outside",  # Show ticks outside the plot
+        categoryorder="array",
+        categoryarray=[str(int(year)) for year in reversed(years)],
+    )
+    fig.update_xaxes(range=[0, None])  # Ensure x-axes start at zero for clarity
 
     return fig
 
@@ -764,11 +913,190 @@ def plot_scenario_output_ranges(
             title="",
             orientation="h",
             yanchor="bottom",
+            y=-0.25,  # Position the legend below the plot
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12),
+        ),
+    )
+
+    # Update x-axis ticks to increase by 1 year
+    fig.update_xaxes(
+        tickmode="linear",
+        tick0=plot_start_date,
+        dtick=1,  # Set tick increment to 1 year
+    )
+
+    return fig
+
+
+def plot_scenario_output_ranges_by_col(
+    scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
+    plot_start_date: float = 2025.0,
+    plot_end_date: float = 2036.0,
+    max_alpha: float = 0.7,
+) -> go.Figure:
+    """
+    Plot the credible intervals for incidence and mortality_raw with scenarios as rows.
+
+    Args:
+        scenario_outputs: Dictionary containing scenario outputs, with scenario names as keys.
+        plot_start_date: Start year for the plot as float.
+        plot_end_date: End year for the plot as float.
+        max_alpha: Maximum alpha value to use in patches.
+
+    Returns:
+        The interactive Plotly figure.
+    """
+    indicators = ["incidence", "mortality_raw"]
+    n_scenarios = len(scenario_outputs)
+    n_cols = len(indicators)
+
+    # Define the color scheme using Plotly's qualitative palette
+    colors = px.colors.qualitative.Plotly
+    indicator_colors = {
+        ind: colors[i % len(colors)] for i, ind in enumerate(indicators)
+    }
+
+    # Define the scenario titles manually
+    y_axis_titles = ["Status-quo scenario", "Scenario 1", "Scenario 2", "Scenario 3"]
+
+    # Create the subplots without shared y-axis
+    fig = make_subplots(
+        rows=n_scenarios,
+        cols=n_cols,
+        shared_yaxes=False,
+        vertical_spacing=0.05,
+        horizontal_spacing=0.07,
+        column_titles=[
+            "TB incidence (per 100,000 populations)",
+            "TB deaths",
+        ],  # Titles for columns
+    )
+
+    target_color = "red"  # Use a consistent color for 2035 target points
+    show_legend_for_target = True  # To ensure the legend is shown only once
+
+    for scenario_idx, (scenario_key, quantile_outputs) in enumerate(
+        scenario_outputs.items()
+    ):
+        row = scenario_idx + 1
+
+        # Get the formatted scenario name from the manual list
+        display_name = y_axis_titles[scenario_idx]
+
+        for j, indicator_name in enumerate(indicators):
+            col = j + 1
+            color = indicator_colors[indicator_name]
+            data = quantile_outputs[
+                indicator_name
+            ]  # Access the correct indicator data for the scenario
+
+            # Ensure the index is of float type and filter data by date range
+            filtered_data = data[
+                (data.index >= plot_start_date) & (data.index <= plot_end_date)
+            ]
+
+            for quant in quantiles:
+                if quant not in filtered_data.columns:
+                    continue
+
+                alpha = (
+                    min(
+                        (
+                            quantiles.index(quant),
+                            len(quantiles) - quantiles.index(quant),
+                        )
+                    )
+                    / (len(quantiles) / 2)
+                    * max_alpha
+                )
+                fill_color = f"rgba({hex_to_rgb(color)[0]}, {hex_to_rgb(color)[1]}, {hex_to_rgb(color)[2]}, {alpha})"  # Ensure correct alpha blending
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_data.index,
+                        y=filtered_data[quant],
+                        fill="tonexty",
+                        fillcolor=fill_color,
+                        line={"width": 0},
+                        showlegend=False,
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+            # Plot the median line (0.5 quantile)
+            if 0.5 in filtered_data.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=filtered_data.index,
+                        y=filtered_data[0.5],
+                        line={"color": color},
+                        showlegend=False,
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+            # Add specific points for "incidence" and "mortality_raw" at 2035 with consistent color and size
+            if indicator_name == "incidence":
+                fig.add_trace(
+                    go.Scatter(
+                        x=[2035.0],
+                        y=[10],
+                        mode="markers",
+                        marker=dict(size=4, color=target_color),
+                        name="2035 End TB Target" if show_legend_for_target else None,
+                        showlegend=show_legend_for_target,
+                        legendgroup="Target",
+                    ),
+                    row=row,
+                    col=col,
+                )
+                show_legend_for_target = False  # Only show legend once
+
+            if indicator_name == "mortality_raw":
+                fig.add_trace(
+                    go.Scatter(
+                        x=[2035.0],
+                        y=[900],
+                        mode="markers",
+                        marker=dict(size=4, color=target_color),
+                        showlegend=False,
+                        legendgroup="Target",
+                    ),
+                    row=row,
+                    col=col,
+                )
+            fig.update_yaxes(
+                title_text=display_name,
+                # title_standoff=15,
+                title_font=dict(size=12),
+                row=row,
+                col=1,
+            )
+
+            # Only show x-ticks for the last row
+            if row < n_scenarios:
+                fig.update_xaxes(showticklabels=False, row=row, col=col)
+
+    fig.update_layout(
+        height=680,  # Adjust height based on the number of scenarios
+        title="",
+        xaxis_title="",  # No title on individual x-axes
+        # yaxis_title="",
+        showlegend=True,
+        legend=dict(
+            title="",
+            orientation="h",
+            yanchor="bottom",
             y=-0.15,  # Position the legend below the plot
             xanchor="center",
             x=0.5,
             font=dict(size=12),
         ),
+        margin=dict(l=20, r=5, t=30, b=40),  # Adjust margins to accommodate titles
     )
 
     # Update x-axis ticks to increase by 1 year

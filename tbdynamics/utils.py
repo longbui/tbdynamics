@@ -237,7 +237,8 @@ def get_standard_subplot_fig(
     heights = [320, 600, 680]
     height = 680 if n_rows > 3 else heights[n_rows - 1]
     fig = make_subplots(n_rows, n_cols, subplot_titles=titles, vertical_spacing=0.1, horizontal_spacing=0.05, shared_yaxes=share_y)
-    return fig.update_layout(margin={i: 25 for i in ['t', 'b', 'l', 'r']}, height=height)
+    # return fig.update_layout(margin={i: 25 for i in ['t', 'b', 'l', 'r']}, height=height)
+    return fig.update_layout(height=height)
 
 # def calculate_cdr_adjustments(case_detection_rate, infect_death, self_recovery):
 #     return case_detection_rate * (infect_death + self_recovery) / (1 - case_detection_rate)
