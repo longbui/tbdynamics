@@ -26,7 +26,7 @@ extended_layout.update(
         mirror=True,
         ticks="outside",
         title_font=dict(
-            family="Arial Black",  # Use Arial Black for bold font
+            family="Arial",  # Use Arial Black for bold font
             size=12,
             color="black",
         ),
@@ -41,7 +41,7 @@ extended_layout.update(
         mirror=True,
         ticks="outside",
         title_font=dict(
-            family="Arial Black",  # Use Arial Black for bold font
+            family="Arial",  # Use Arial Black for bold font
             size=12,
             color="black",
         ),
@@ -51,12 +51,12 @@ extended_layout.update(
     ),
     title=dict(
         font=dict(
-            family="Arial Black",  # Use Arial Black for bold font
+            family="Arial",  # Use Arial Black for bold font
             size=14,
             color="black",
         )
     ),
-    font=dict(family="Arial Black", size=14),  # General font settings for the figure
+    font=dict(family="Arial", size=14),  # General font settings for the figure
     legend=dict(
         font=dict(family="Arial", size=12, color="black")  # Set legend font to Arial
     ),
@@ -106,15 +106,15 @@ def plot_output_ranges(
         (
             [
                 (
-                    indicator_names[ind]
+                    f"<b>{indicator_names[ind]}</b>"
                     if ind in indicator_names
-                    else ind.replace("_", " ").capitalize()
+                    else f"<b>{ind.replace('_', ' ').capitalize()}</b>"
                 )
                 for ind in indicators
             ]
             if show_title
             else ["" for _ in indicators]
-        ),  # Conditionally set titles
+        ),  # Conditionally set titles with bold tags
     )
 
     for i, ind in enumerate(indicators):
@@ -969,8 +969,8 @@ def plot_scenario_output_ranges_by_col(
         vertical_spacing=0.05,
         horizontal_spacing=0.07,
         column_titles=[
-            "TB incidence (per 100,000 populations)",
-            "TB deaths",
+            "<b>TB incidence (per 100,000 populations)</b>",
+            "<b>TB deaths</b>",
         ],  # Titles for columns
     )
 
