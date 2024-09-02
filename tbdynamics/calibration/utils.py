@@ -244,6 +244,106 @@ def calculate_covid_diff_quantiles(
 
     return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
 
+def calculate_covid_diff_cum_quantiles(
+    params: Dict[str, float],
+    idata_extract: az.InferenceData,
+    cumulative_start_time: int = 2020,
+    covid_analysis: int = 2,
+    years: List[float] = [2021.0, 2022.0, 2025.0, 2030.0, 2035.0],
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """
+    Run the models for the specified scenarios, calculate cumulative diseased and death values,
+    and return quantiles for absolute and relative differences between scenarios.
+
+    Args:
+        params: Dictionary containing model parameters.
+        idata_extract: InferenceData object containing the model data.
+        cumulative_start_time: Year to start calculating the cumulative values.
+        covid_analysis: Integer specifying which analysis to run (default is 2).
+        years: List of years for which to calculate the differences.
+
+    Returns:
+        A dictionary containing quantiles for absolute and relative differences between scenarios.
+    """
+
+    # Validate that covid_analysis is either 1 or 2
+    if covid_analysis not in [1, 2]:
+        raise ValueError("Invalid value for covid_analysis. Must be 1 or 2.")
+
+    # Define the scenarios
+    covid_scenarios = [
+        {"detection_reduction": False, "contact_reduction": False},  # No reduction
+        {
+            "detection_reduction": True,
+            "contact_reduction": True,
+        },  # With detection + contact reduction
+        {
+            "detection_reduction": True,
+            "contact_reduction": False,
+        },  # No contact reduction
+    ]
+
+    scenario_results = []
+    for covid_effects in covid_scenarios:
+        # Get the model results
+        bcm = get_bcm(params, covid_effects)
+        spaghetti_res = esamp.model_results_for_samples(idata_extract, bcm).results
+
+        # Filter the results to include only the rows where the index (year) is an integer
+        yearly_data = spaghetti_res.loc[
+            (spaghetti_res.index >= cumulative_start_time) & 
+            (spaghetti_res.index % 1 == 0)
+        ]
+
+        # Calculate cumulative sums for each sample
+        cumulative_diseased_yearly = yearly_data['incidence_raw'].cumsum()
+        cumulative_deaths_yearly = yearly_data['mortality_raw'].cumsum()
+
+        # Store the cumulative results in the list
+        scenario_results.append({
+            "cumulative_diseased": cumulative_diseased_yearly,
+            "cumulative_deaths": cumulative_deaths_yearly,
+        })
+
+    # Calculate the differences based on the covid_analysis value
+    abs_diff = {
+        "cumulative_diseased": scenario_results[covid_analysis]["cumulative_diseased"] - scenario_results[0]["cumulative_diseased"],
+        "cumulative_deaths": scenario_results[covid_analysis]["cumulative_deaths"] - scenario_results[0]["cumulative_deaths"]
+    }
+    rel_diff = {
+        "cumulative_diseased": abs_diff["cumulative_diseased"] / scenario_results[0]["cumulative_diseased"],
+        "cumulative_deaths": abs_diff["cumulative_deaths"] / scenario_results[0]["cumulative_deaths"]
+    }
+
+    # Calculate quantiles for absolute and relative differences
+    diff_quantiles_abs = {}
+    diff_quantiles_rel = {}
+
+    for ind in ["cumulative_diseased", "cumulative_deaths"]:
+        # Calculate absolute difference quantiles
+        diff_quantiles_df_abs = pd.DataFrame(
+            {
+                quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
+                for quantile in quantiles
+            },
+            index=years,
+        )
+
+        # Calculate relative difference quantiles
+        diff_quantiles_df_rel = pd.DataFrame(
+            {
+                quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
+                for quantile in quantiles
+            },
+            index=years,
+        )
+
+        diff_quantiles_abs[ind] = diff_quantiles_df_abs
+        diff_quantiles_rel[ind] = diff_quantiles_df_rel
+
+    return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
+
+
 def calculate_outputs_for_covid_configs(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
@@ -489,3 +589,107 @@ def calculate_scenario_and_diff_outputs(
         "scenario_outputs": scenario_outputs,
         "detection_diff_results": detection_diff_results if calculate_diff else None
     }
+
+def calculate_scenario_diff_cum_quantiles(
+    params: Dict[str, float],
+    idata_extract: az.InferenceData,
+    detection_multipliers: List[float],
+    cumulative_start_time: int = 2020,
+    scenario_choice: int = 2,
+    years: List[int] = [2021, 2022, 2025, 2030, 2035],
+) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
+    """
+    Calculate the cumulative incidence and deaths for each scenario with different detection multipliers,
+    compute the differences compared to a base scenario, and return quantiles for absolute and relative differences.
+
+    Args:
+        params: Dictionary containing model parameters.
+        idata_extract: InferenceData object containing the model data.
+        detection_multipliers: List of multipliers for improved detection to loop through.
+        cumulative_start_time: Year to start calculating the cumulative values.
+        scenario_choice: Integer specifying which scenario to use (1 or 2).
+        years: List of years for which to calculate the quantiles.
+
+    Returns:
+        A dictionary containing the quantiles for absolute and relative differences between scenarios.
+    """
+
+    # Set scenario configuration based on scenario_choice
+    if scenario_choice == 1:
+        scenario_config = {"detection_reduction": True, "contact_reduction": True}
+    elif scenario_choice == 2:
+        scenario_config = {"detection_reduction": True, "contact_reduction": False}
+    else:
+        raise ValueError("Invalid scenario_choice. Choose 1 or 2.")
+
+    # Base scenario (without improved detection)
+    bcm = get_bcm(params, scenario_config)
+    base_results = esamp.model_results_for_samples(idata_extract, bcm).results
+
+    # Calculate cumulative sums for the base scenario
+    yearly_data_base = base_results.loc[
+        (base_results.index >= cumulative_start_time) & 
+        (base_results.index % 1 == 0)
+    ]
+    cumulative_diseased_base = yearly_data_base['incidence_raw'].cumsum()
+    cumulative_deaths_base = yearly_data_base['mortality_raw'].cumsum()
+
+    # Store results for each detection multiplier
+    detection_diff_results = {}
+
+    for multiplier in detection_multipliers:
+        # Improved detection scenario
+        bcm = get_bcm(params, scenario_config, multiplier)
+        scenario_result = esamp.model_results_for_samples(idata_extract, bcm).results
+
+        # Calculate cumulative sums for each scenario
+        yearly_data = scenario_result.loc[
+            (scenario_result.index >= cumulative_start_time) & 
+            (scenario_result.index % 1 == 0)
+        ]
+        cumulative_diseased = yearly_data['incidence_raw'].cumsum()
+        cumulative_deaths = yearly_data['mortality_raw'].cumsum()
+
+        # Calculate differences compared to the base scenario
+        abs_diff = {
+            "cumulative_diseased": cumulative_diseased - cumulative_diseased_base,
+            "cumulative_deaths": cumulative_deaths - cumulative_deaths_base,
+        }
+        rel_diff = {
+            "cumulative_diseased": abs_diff["cumulative_diseased"] / cumulative_diseased_base,
+            "cumulative_deaths": abs_diff["cumulative_deaths"] / cumulative_deaths_base,
+        }
+
+        # Calculate quantiles for absolute and relative differences
+        diff_quantiles_abs = {}
+        diff_quantiles_rel = {}
+
+        for ind in ["cumulative_diseased", "cumulative_deaths"]:
+            diff_quantiles_df_abs = pd.DataFrame(
+                {
+                    quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
+                    for quantile in quantiles
+                },
+                index=years,
+            )
+
+            diff_quantiles_df_rel = pd.DataFrame(
+                {
+                    quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
+                    for quantile in quantiles
+                },
+                index=years,
+            )
+
+            diff_quantiles_abs[ind] = diff_quantiles_df_abs
+            diff_quantiles_rel[ind] = diff_quantiles_df_rel
+
+        # Store the quantile results
+        scenario_key = f"increase_case_detection_by_{multiplier}".replace(".", "_")
+        detection_diff_results[scenario_key] = {
+            "abs": diff_quantiles_abs,
+            "rel": diff_quantiles_rel,
+        }
+
+    # Return the quantiles for absolute and relative differences
+    return detection_diff_results

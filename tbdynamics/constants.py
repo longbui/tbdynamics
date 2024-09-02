@@ -62,15 +62,29 @@ params_name = {
 
 quantiles = [0.025, 0.25, 0.5, 0.75, 0.975]
 
-covid_scenarios = [
-    {"detection_reduction": False, "contact_reduction": False},  # No reduction
-    {"detection_reduction": True, "contact_reduction": True},  # With contact reduction
-    {"detection_reduction": True, "contact_reduction": False},  # No contact reduction
-]
 
 scenario_names = {
     'base_scenario': 'Baseline scenario',
     'increase_case_detection_by_2_0': 'Scenario 1',
     'increase_case_detection_by_5_0': 'Scenario 2',
-    'increase_case_detection_by_10_0': 'Scenario 3'
+    'increase_case_detection_by_12_0': 'Scenario 3'
 }
+
+covid_configs = {
+        'no_covid': {
+            "detection_reduction": False,
+            "contact_reduction": False
+        },  # No reduction
+        'detection_and_contact_reduction': {
+            "detection_reduction": True,
+            "contact_reduction": True
+        },  # With detection + contact reduction
+        'case_detection_reduction_only': {
+            "detection_reduction": True,
+            "contact_reduction": False
+        },  # No contact reduction
+        'contact_reduction_only': {
+            "detection_reduction": False,
+            "contact_reduction": True
+        }  # Only contact reduction
+    }
