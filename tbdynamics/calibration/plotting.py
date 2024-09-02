@@ -403,6 +403,143 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
     plt.show()
 
 
+def plot_outputs_for_covid(
+    scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
+    target_data: Dict[str, pd.Series],
+    plot_start_date: int = 2010,
+    plot_end_date: int = 2025,
+    max_alpha: float = 0.7,
+) -> go.Figure:
+    """
+    Plot the "notification" indicator for each scenario in a 2x2 grid with subplot titles
+    based on configuration keys and include target points.
+
+    Args:
+        scenario_outputs: Dictionary containing outputs for each scenario.
+        target_data: Calibration targets.
+        covid_configs: Dictionary containing COVID-19 scenarios with corresponding effects.
+        plot_start_date: Start year for the plot.
+        plot_end_date: End year for the plot.
+        max_alpha: Maximum alpha value to use in patches.
+
+    Returns:
+        A Plotly figure with all scenarios plotted in a 2x2 grid.
+    """
+
+    covid_configs = {
+        "no_covid": {
+            "detection_reduction": False,
+            "contact_reduction": False,
+        },  # No reduction
+        "detection_and_contact_reduction": {
+            "detection_reduction": True,
+            "contact_reduction": True,
+        },  # With detection + contact reduction
+        "case_detection_reduction_only": {
+            "detection_reduction": True,
+            "contact_reduction": False,
+        },  # No contact reduction
+        "contact_reduction_only": {
+            "detection_reduction": False,
+            "contact_reduction": True,
+        },  # Only contact reduction
+    }
+    # Define the 2x2 grid
+    n_cols = 2
+    n_rows = int(np.ceil(len(covid_configs) / n_cols))
+
+    # Create the subplot figure
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        vertical_spacing=0.1,
+        horizontal_spacing=0.05,
+        subplot_titles=[
+            f"<b>{scenario_name.replace('_', ' ').capitalize()}</b>"
+            for scenario_name in covid_configs.keys()
+        ],
+    )
+
+    # Loop through each scenario and plot it on the grid
+    for i, (scenario_name, config) in enumerate(covid_configs.items()):
+        row = i // n_cols + 1
+        col = i % n_cols + 1
+        quantile_outputs = scenario_outputs[scenario_name]['indicator_outputs']
+        data = quantile_outputs["notification"]
+
+        # Filter data by date range
+        filtered_data = data[
+            (data.index >= plot_start_date) & (data.index <= plot_end_date)
+        ]
+
+        for q, quant in enumerate(quantiles):
+            if quant not in filtered_data.columns:
+                continue
+
+            alpha = (
+                min((quantiles.index(quant), len(quantiles) - quantiles.index(quant)))
+                / (len(quantiles) / 2)
+                * max_alpha
+            )
+            fill_color = f"rgba(0,30,180,{alpha})"
+
+            fig.add_trace(
+                go.Scatter(
+                    x=filtered_data.index,
+                    y=filtered_data[quant],
+                    fill="tonexty",
+                    fillcolor=fill_color,
+                    line={"width": 0},
+                    name=f"{scenario_name} {quant}",
+                    showlegend=False,  # Disable legend to avoid clutter
+                ),
+                row=row,
+                col=col,
+            )
+
+        # Plot the median line
+        if 0.5 in filtered_data.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=filtered_data.index,
+                    y=filtered_data[0.5],
+                    line={"color": "black"},
+                    name=f"{scenario_name} median",
+                    showlegend=False,  # Disable legend to avoid clutter
+                ),
+                row=row,
+                col=col,
+            )
+
+        # Add target points if available
+        if "notification" in target_data:
+            targets = target_data["notification"]
+            fig.add_trace(
+                go.Scatter(
+                    x=targets.index,
+                    y=targets,
+                    mode="markers",
+                    marker=dict(size=4, color="red"),
+                    name="Target",
+                    showlegend=False,  # Hide legend for targets
+                ),
+                row=row,
+                col=col,
+            )
+
+    # Update layout for the whole figure
+    fig.update_layout(
+        title="",
+        xaxis_title="",
+        yaxis_title="",
+        showlegend=False,
+        height=600,  # Set the figure height to 600 pixels
+        margin=dict(l=10, r=5, t=30, b=40),
+    )
+
+    return fig
+
+
 def plot_covid_scenarios_comparison(
     diff_quantiles, indicators, years, plot_type="abs", n_cols=1
 ):

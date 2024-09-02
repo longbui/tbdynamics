@@ -15,6 +15,7 @@ from tbdynamics.constants import (
     quantiles
 )
 from numpyro import distributions as dist
+import numpy as np
 
 def get_bcm(params, covid_effects = None, improved_detection_multiplier = None) -> BayesianCompartmentalModel:
     """
@@ -118,7 +119,6 @@ def get_targets() -> List:
         ),
         # est.NormalTarget("prevalence_smear_positive", target_data["prevalence_smear_positive_target"], sptb_dispersion),
     ]
-
 
 
 def convert_prior_to_numpyro(prior):
@@ -243,6 +243,158 @@ def calculate_covid_diff_quantiles(
         diff_quantiles_rel[ind] = diff_quantiles_df_rel
 
     return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
+
+def calculate_outputs_for_covid_configs(
+    params: Dict[str, float],
+    idata_extract: az.InferenceData,
+    indicators: List[str]
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """
+    Calculate model outputs for each scenario defined in covid_configs and store the results
+    in a dictionary where the keys correspond to the keys in covid_configs.
+
+    Args:
+        params: Dictionary containing model parameters.
+        idata_extract: InferenceData object containing the model data.
+        indicators: List of indicators to calculate outputs for.
+
+    Returns:
+        A dictionary where each key corresponds to a scenario in covid_configs and the value is 
+        another dictionary containing DataFrames with outputs for the given indicators.
+    """
+
+    # Define the covid_configs inside the function
+    covid_configs = {
+        'no_covid': {
+            "detection_reduction": False,
+            "contact_reduction": False
+        },  # No reduction
+        'detection_and_contact_reduction': {
+            "detection_reduction": True,
+            "contact_reduction": True
+        },  # With detection + contact reduction
+        'case_detection_reduction_only': {
+            "detection_reduction": True,
+            "contact_reduction": False
+        },  # No contact reduction
+        'contact_reduction_only': {
+            "detection_reduction": False,
+            "contact_reduction": True
+        }  # Only contact reduction
+    }
+
+    scenario_outputs = {}
+
+    # Loop through each scenario in covid_configs
+    for scenario_name, covid_effects in covid_configs.items():
+        # Run the model for the current scenario
+        bcm = get_bcm(params, covid_effects)
+        model_results = esamp.model_results_for_samples(idata_extract, bcm)
+        spaghetti_res = model_results.results
+        ll_res = model_results.extras  # Extract additional results (e.g., log-likelihoods)
+        scenario_quantiles = esamp.quantiles_for_results(spaghetti_res, quantiles)
+
+        # Initialize a dictionary to store indicator-specific outputs
+        indicator_outputs = {}
+
+        # Extract the results for the given indicators
+        for indicator in indicators:
+            if indicator in scenario_quantiles:
+                indicator_outputs[indicator] = scenario_quantiles[indicator]
+
+        # Store the outputs and ll_res in the dictionary with the scenario name as the key
+        scenario_outputs[scenario_name] = {
+            "indicator_outputs": indicator_outputs,
+            "ll_res": ll_res
+        }
+
+    return scenario_outputs
+
+def calculate_dic(log_likelihoods: np.ndarray) -> float:
+    """
+    Calculate the Deviance Information Criterion (DIC) given log-likelihood values.
+
+    Args:
+        log_likelihoods: Array of log-likelihood values.
+
+    Returns:
+        The DIC value.
+    """
+    mean_log_likelihood = np.mean(log_likelihoods)
+    deviance = -2 * log_likelihoods
+    mean_deviance = np.mean(deviance)
+    dic = 2 * mean_deviance - (-2 * mean_log_likelihood)
+    return dic
+
+def calculate_dic_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
+    """
+    Calculate DIC for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
+
+    Args:
+        covid_outputs: Dictionary containing outputs for each scenario, including log-likelihoods.
+
+    Returns:
+        A dictionary where each key is a scenario name and the value is the DIC calculated from the 'loglikelihood'.
+    """
+    dic_results = {}
+
+    for scenario, results in covid_outputs.items():
+        ll_res = results['ll_res']  # Get the DataFrame containing log-likelihoods
+
+        # Calculate DIC only for the 'loglikelihood' column
+        if 'loglikelihood' in ll_res.columns:
+            dic_value = calculate_dic(ll_res['loglikelihood'].values)
+            dic_results[scenario] = dic_value
+
+    return dic_results
+
+def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
+    """
+    Calculate the Leave-One-Out Information Criterion (LOO-IC).
+
+    Args:
+        log_likelihoods: Array of log-likelihood values. Can be 1D (for a single observation)
+                         or 2D with shape (n_samples, n_observations).
+
+    Returns:
+        The LOO-IC value.
+    """
+    # Ensure log_likelihoods is a 2D array
+    if log_likelihoods.ndim == 1:
+        log_likelihoods = log_likelihoods[:, np.newaxis]
+    
+    n_samples, n_observations = log_likelihoods.shape
+
+    # Calculate the log of the mean of the exponential of the log-likelihoods excluding each data point
+    loo_log_likelihoods = np.zeros(n_observations)
+    for i in range(n_observations):
+        loo_log_likelihoods[i] = np.log(np.mean(np.exp(log_likelihoods[:, i])))
+
+    # LOO-IC is computed as -2 times the sum of these values
+    loo_ic = -2 * np.sum(loo_log_likelihoods)
+    return loo_ic
+
+def calculate_loo_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
+    """
+    Calculate LOO-IC for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
+
+    Args:
+        covid_outputs: Dictionary containing outputs for each scenario, including log-likelihoods.
+
+    Returns:
+        A dictionary where each key is a scenario name and the value is the LOO-IC calculated from the 'loglikelihood'.
+    """
+    loo_results = {}
+
+    for scenario, results in covid_outputs.items():
+        ll_res = results['ll_res']  # Get the DataFrame containing log-likelihoods
+
+        # Calculate LOO-IC only for the 'loglikelihood' column
+        if 'loglikelihood' in ll_res.columns:
+            loo_ic_value = loo_cross_validation(ll_res['loglikelihood'].values)
+            loo_results[scenario] = loo_ic_value
+
+    return loo_results
 
 def calculate_scenario_and_diff_outputs(
     params: Dict[str, float],
