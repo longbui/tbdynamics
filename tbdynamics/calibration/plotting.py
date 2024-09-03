@@ -202,8 +202,8 @@ def plot_output_ranges(
                         array=filtered_upper_bound - filtered_target,
                         arrayminus=filtered_target - filtered_lower_bound,
                         color="red",
-                        thickness=0.5,
-                        width=5,
+                        thickness=1,
+                        width=2,
                     ),
                     name="",  # No name for legend
                 ),
@@ -548,7 +548,7 @@ def plot_covid_configs_comparison(
     return fig
 
 
-def plot_covid_scenarios_comparison_combined(
+def plot_covid_scenarios_comparison_box(
     diff_quantiles, plot_type="abs"
 ):
     """
@@ -604,8 +604,8 @@ def plot_covid_scenarios_comparison_combined(
                         for median, lower in zip(median_diffs, lower_diffs)
                     ],
                     color="black",
-                    thickness=1.5,
-                    width=3,
+                    thickness=1,
+                    width=2,
                 ),
             )
         )
@@ -613,23 +613,24 @@ def plot_covid_scenarios_comparison_combined(
     fig.update_layout(
         title={
             "text": "Reference: Counterfactual no COVID-19",
-            "x": 0.5,
-            "xanchor": "center",
+            "x": 0.061,
+            "xanchor": "left",
             "yanchor": "top",
         },
         yaxis_title="",
         xaxis_title="",
         height=320,
         barmode="group",
-        showlegend=True,
         legend=dict(
             orientation="h",  # Horizontal orientation for the legend
             yanchor="bottom",  # Anchor the legend at the bottom
             y=-0.3,  # Move the legend below the x-axis
             xanchor="center",  # Center the legend horizontally
             x=0.5,
+            itemsizing="constant", 
+            traceorder="normal", 
         ),
-        margin=dict(l=20, r=5, t=40, b=40),
+        margin=dict(l=20, r=5, t=30, b=40),
     )
 
     # Ensure the y-axis is visible by adjusting its properties
@@ -785,7 +786,7 @@ def plot_scenario_output_ranges(
                 go.Scatter(
                     x=[2035],
                     y=[10],
-                    mode="markers+text",
+                    mode="markers",
                     marker=dict(size=4, color=target_color),
                     name="2035 End TB Target",
                     showlegend=True if i == 0 else False,  # Show legend only once
@@ -800,7 +801,7 @@ def plot_scenario_output_ranges(
                 go.Scatter(
                     x=[2035],
                     y=[900],
-                    mode="markers+text",
+                    mode="markers",
                     marker=dict(size=4, color=target_color),
                     showlegend=False,  # No additional legend entry for repeated points
                     legendgroup="Target",
@@ -873,7 +874,7 @@ def plot_scenario_output_ranges_by_col(
         cols=n_cols,
         shared_yaxes=False,
         vertical_spacing=0.05,
-        horizontal_spacing=0.07,
+        horizontal_spacing=0.05,
         column_titles=[
             "<b>TB incidence (per 100,000 populations)</b>",
             "<b>TB deaths</b>",
@@ -976,7 +977,7 @@ def plot_scenario_output_ranges_by_col(
                     col=col,
                 )
             fig.update_yaxes(
-                title_text=display_name,
+                title_text=f"<b>{display_name}</b>",
                 # title_standoff=15,
                 title_font=dict(size=12),
                 row=row,
@@ -1066,8 +1067,8 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
                     array=upper_errors,  # Upper bound error
                     arrayminus=lower_errors,  # Lower bound error
                     color="black",  # Black color for error bars
-                    thickness=1.5,  # Thicker error bars
-                    width=3,  # Wider error bars
+                    thickness=1,  # Thicker error bars
+                    width=2,  # Wider error bars
                 ),
                 name=indicator.replace("_", " ").capitalize(),  # Use indicator name for legend
             )
@@ -1081,7 +1082,12 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
 
     # Update layout with tight margins and ordered legend
     fig.update_layout(
-        title={"text": "Reference: Status-quo scenario", "x": 0.5},
+        title={
+            "text": "Reference: Status-quo scenario",
+            "x": 0.99,
+            "xanchor": "right",
+            "yanchor": "top",
+        },
         xaxis_title="",
         yaxis_title="",
         barmode="group",
@@ -1110,4 +1116,3 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
     )
 
     return fig
-

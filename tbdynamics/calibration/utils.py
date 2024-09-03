@@ -4,7 +4,7 @@ import estival.targets as est
 from estival.sampling import tools as esamp
 import arviz as az
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from tbdynamics.model import build_model
 from tbdynamics.inputs import load_params, load_targets, matrix
 from tbdynamics.constants import (
@@ -409,43 +409,58 @@ def calculate_notifications_for_covid(
 
     return scenario_outputs
 
-def calculate_dic(log_likelihoods: np.ndarray) -> float:
+def calculate_dic(log_likelihoods: np.ndarray) -> Tuple[float, float]:
     """
-    Calculate the Deviance Information Criterion (DIC) given log-likelihood values.
+    Calculate the Deviance Information Criterion (DIC) and effective number of parameters (pD) given log-likelihood values.
 
     Args:
         log_likelihoods: Array of log-likelihood values.
 
     Returns:
-        The DIC value.
+        A tuple containing the DIC value and the effective number of parameters (pD).
     """
-    mean_log_likelihood = np.mean(log_likelihoods)
+    # Calculate deviance for each sample
     deviance = -2 * log_likelihoods
+    
+    # Calculate mean deviance
     mean_deviance = np.mean(deviance)
-    dic = 2 * mean_deviance - (-2 * mean_log_likelihood)
-    return dic
+    
+    # Calculate deviance at the mean of the log-likelihoods
+    mean_log_likelihood = np.mean(log_likelihoods)
+    deviance_at_mean = -2 * mean_log_likelihood
+    
+    # Calculate effective number of parameters pD
+    pD = mean_deviance - deviance_at_mean
+    
+    # Calculate DIC
+    dic = mean_deviance + pD
+    
+    return dic, pD
 
-def calculate_dic_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
+def calculate_dic_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> pd.DataFrame:
     """
-    Calculate DIC for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
+    Calculate DIC and pD for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
 
     Args:
         covid_outputs: Dictionary containing outputs for each scenario, including log-likelihoods.
 
     Returns:
-        A dictionary where each key is a scenario name and the value is the DIC calculated from the 'loglikelihood'.
+        A DataFrame where each row corresponds to a scenario, with columns for DIC and pD values.
     """
-    dic_results = {}
+    results = []
 
-    for scenario, results in covid_outputs.items():
-        ll_res = results['ll_res']  # Get the DataFrame containing log-likelihoods
+    for scenario, results_dict in covid_outputs.items():
+        ll_res = results_dict['ll_res']  # Get the DataFrame containing log-likelihoods
 
-        # Calculate DIC only for the 'loglikelihood' column
+        # Calculate DIC and pD only for the 'loglikelihood' column
         if 'loglikelihood' in ll_res.columns:
-            dic_value = calculate_dic(ll_res['loglikelihood'].values)
-            dic_results[scenario] = dic_value
+            dic_value, pD_value = calculate_dic(ll_res['ll_notification'].values)
+            results.append({'Scenario': scenario, 'DIC': dic_value, 'pD': pD_value})
 
-    return dic_results
+    # Convert results to DataFrame
+    results_df = pd.DataFrame(results)
+
+    return results_df
 
 def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     """
@@ -473,7 +488,7 @@ def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     loo_ic = -2 * np.sum(loo_log_likelihoods)
     return loo_ic
 
-def calculate_loo_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
+def calculate_loo_for_covid(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
     """
     Calculate LOO-IC for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
 
