@@ -856,7 +856,7 @@ def plot_scenario_output_ranges_by_col(
     """
     indicators = ["incidence", "mortality_raw"]
     n_scenarios = len(scenario_outputs)
-    n_cols = len(indicators)
+    n_cols = 2
 
     # Define the color scheme using Plotly's qualitative palette
     colors = px.colors.qualitative.Plotly
@@ -1014,67 +1014,64 @@ def plot_scenario_output_ranges_by_col(
 
     return fig
 
-def plot_detection_scenarios_comparison_box(
-    detection_diff_results: Dict[str, Dict[str, pd.DataFrame]],
-    plot_type: str ="abs", 
-    year: int =2035
-):
+def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
     """
-    Plot the median differences with error bars indicating the range from 0.025 to 0.975 quantiles
-    for the cumulative diseased and deaths across multiple detection scenarios for the specified year.
+    Plot the quantile differences for the fixed indicators across multiple scenarios.
 
     Args:
-        detection_diff_results: A dictionary containing the calculated quantile differences (output from `calculate_scenario_and_diff_outputs`).
-        plot_type: "abs" for absolute differences, "rel" for relative differences.
-        year: The year for which to plot the data (default is 2035).
-        scenario_names: Optional dictionary to map scenario keys to more descriptive names.
+        diff_quantiles (dict): The quantile difference data structured as a dictionary.
+        plot_type (str): "abs" for absolute differences, "rel" for relative differences.
 
     Returns:
-        A Plotly figure with all indicators plotted together for the specified year.
+        fig: A Plotly figure object.
     """
-    fig = go.Figure()
-    colors = px.colors.qualitative.Plotly
+    # Fixed indicators
     indicators = ["cumulative_diseased", "cumulative_deaths"]
-    scenarios = detection_diff_results.keys()
+    colors = px.colors.qualitative.Plotly
+    indicator_colors = {ind: colors[i % len(colors)] for i, ind in enumerate(indicators)}
 
-    indicator_colors = {
-        ind: colors[i % len(colors)] for i, ind in enumerate(indicators)
-    }
+    fig = go.Figure()
 
-    for scenario in scenarios:
-        for ind in indicators:
-            color = indicator_colors.get(
-                ind, "rgba(0, 123, 255)"
-            )  # Default to blue if not specified
+    for i, indicator in enumerate(indicators):
+        color = indicator_colors.get(indicator, "rgba(0, 123, 255)")
 
-            quantile_data = detection_diff_results[scenario][plot_type][ind].loc[year]
-            median_diff = round(quantile_data[0.5])
-            lower_diff = round(quantile_data[0.025])
-            upper_diff = round(quantile_data[0.975])
+        # Extract data for the given indicator and plot_type
+        scenarios = list(diff_quantiles.keys())  # Extract scenario names
+        medians = []
+        lower_errors = []
+        upper_errors = []
 
-            fig.add_trace(
-                go.Bar(
-                    y=[
-                        scenario_names.get(
-                            scenario, scenario.replace("_", " ").capitalize()
-                        )
-                        for scenario in scenarios
-                    ],  # Map scenario keys to descriptive names
-                    x=[median_diff],  # Median difference
-                    orientation="h",
-                    name=f"{ind.replace('_', ' ').capitalize()}",
-                    marker=dict(color=color),
-                    error_x=dict(
-                        type="data",
-                        symmetric=False,
-                        array=[upper_diff - median_diff],
-                        arrayminus=[median_diff - lower_diff],
-                        color="black",
-                        thickness=1.5,
-                        width=3,
-                    ),
-                )
+        for scenario in scenarios:
+            median_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.500]
+            lower_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.025]
+            upper_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.975]
+
+            medians.append(median_val)
+            lower_errors.append(median_val - lower_val)
+            upper_errors.append(upper_val - median_val)
+
+        # Add trace for this indicator in the specified order
+        fig.add_trace(
+            go.Bar(
+                y=[
+                    scenario_names.get(scenario, scenario.replace("_", " ").capitalize())
+                    for scenario in scenarios
+                ],  # Descriptive scenario names
+                x=medians,  # Median values on x-axis
+                orientation="h",
+                marker=dict(color=color),
+                error_x=dict(
+                    type="data",
+                    symmetric=False,
+                    array=upper_errors,  # Upper bound error
+                    arrayminus=lower_errors,  # Lower bound error
+                    color="black",  # Black color for error bars
+                    thickness=1.5,  # Thicker error bars
+                    width=3,  # Wider error bars
+                ),
+                name=indicator.replace("_", " ").capitalize(),  # Use indicator name for legend
             )
+        )
 
     # Ensure traces are ordered according to indicators list
     fig.data = sorted(
@@ -1090,7 +1087,7 @@ def plot_detection_scenarios_comparison_box(
         barmode="group",
         height=320,  # Adjust height based on the number of rows
         margin=dict(
-            l=20, r=5, t=40, b=40
+            l=20, r=5, t=30, b=40
         ),  # Tight layout with more bottom margin for legend
         yaxis=dict(
             tickangle=-45,  # Rotate y-axis labels by 45 degrees

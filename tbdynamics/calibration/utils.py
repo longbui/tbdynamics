@@ -344,10 +344,9 @@ def calculate_covid_diff_cum_quantiles(
     return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
 
 
-def calculate_outputs_for_covid_configs(
+def calculate_notifications_for_covid(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
-    indicators: List[str]
 ) -> Dict[str, Dict[str, pd.DataFrame]]:
     """
     Calculate model outputs for each scenario defined in covid_configs and store the results
@@ -397,10 +396,10 @@ def calculate_outputs_for_covid_configs(
         # Initialize a dictionary to store indicator-specific outputs
         indicator_outputs = {}
 
-        # Extract the results for the given indicators
-        for indicator in indicators:
-            if indicator in scenario_quantiles:
-                indicator_outputs[indicator] = scenario_quantiles[indicator]
+         # Extract the results only for the "notification" indicator
+        notification_indicator = "notification"  # Replace with the exact name of the notification indicator
+        if notification_indicator in scenario_quantiles:
+            indicator_outputs[notification_indicator] = scenario_quantiles[notification_indicator]
 
         # Store the outputs and ll_res in the dictionary with the scenario name as the key
         scenario_outputs[scenario_name] = {
@@ -496,49 +495,40 @@ def calculate_loo_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]
 
     return loo_results
 
-def calculate_scenario_and_diff_outputs(
+def calculate_scenario_outputs(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
-    indicators: List[str],
-    years: List[int],
-    detection_multipliers: List[float],
-    calculate_diff: bool = True, 
-    scenario_choice: int =2,
-) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
+    indicators: List[str] = ['incidence', 'mortality_raw'],
+    detection_multipliers: List[float] = [2.0, 5.0, 12.0],
+) -> Dict[str, Dict[str, pd.DataFrame]]:
     """
     Calculate the model results for each scenario with different detection multipliers
-    and optionally compute the differences compared to a base scenario.
+    and return the baseline and scenario outputs.
 
     Args:
         params: Dictionary containing model parameters.
         idata_extract: InferenceData object containing the model data.
-        indicators: List of indicators to calculate differences for.
-        years: List of years for which to calculate the differences.
-        detection_multipliers: List of multipliers for improved detection to loop through.
-        calculate_diff: Boolean to indicate whether to calculate the differences relative to the base scenario.
+        indicators: List of indicators to return for the other scenarios (default: ['incidence', 'mortality_raw']).
+        detection_multipliers: List of multipliers for improved detection to loop through (default: [2.0, 5.0, 12.0]).
 
     Returns:
-        A dictionary containing results for each scenario and optionally the differences.
+        A dictionary containing results for the baseline and each scenario.
     """
 
-    if scenario_choice == 1:
-        scenario_config = {"detection_reduction": True, "contact_reduction": True}
-    elif scenario_choice == 2:
-        scenario_config = {"detection_reduction": True, "contact_reduction": False}
-    else:
-        raise ValueError("Invalid scenario_choice. Choose 1 or 2.")
-    # Base scenario (without improved detection)
+    # Fixed scenario configuration
+    scenario_config = {"detection_reduction": True, "contact_reduction": False}
+
+    # Base scenario (calculate outputs for all indicators)
     bcm = get_bcm(params, scenario_config)
     base_results = esamp.model_results_for_samples(idata_extract, bcm).results
     base_quantiles = esamp.quantiles_for_results(base_results, quantiles)
 
-    # Store results for each detection multiplier
+    # Store results for the baseline scenario
     scenario_outputs = {"base_scenario": base_quantiles}
-    detection_diff_results = {}
 
+    # Calculate quantiles for each detection multiplier scenario
     for multiplier in detection_multipliers:
-        # Improved detection scenario
-        bcm = get_bcm(params, {"detection_reduction": True, "contact_reduction": False}, multiplier)
+        bcm = get_bcm(params, scenario_config, multiplier)
         scenario_result = esamp.model_results_for_samples(idata_extract, bcm).results
         scenario_quantiles = esamp.quantiles_for_results(scenario_result, quantiles)
 
@@ -546,49 +536,12 @@ def calculate_scenario_and_diff_outputs(
         scenario_key = f"increase_case_detection_by_{multiplier}".replace(".", "_")
         scenario_outputs[scenario_key] = scenario_quantiles
 
-        if calculate_diff:
-            # Calculate the differences compared to the base scenario
-            abs_diff = scenario_quantiles[indicators] - base_quantiles[indicators]
-            rel_diff = abs_diff / base_quantiles[indicators]
+    # Extract only the relevant indicators for each scenario
+    for scenario_key in scenario_outputs:
+        if scenario_key != "base_scenario":
+            scenario_outputs[scenario_key] = scenario_outputs[scenario_key][indicators]
 
-            # Calculate the differences for each indicator and store them in DataFrames
-            diff_quantiles_abs = {}
-            diff_quantiles_rel = {}
-
-            for ind in indicators:
-                if ind not in abs_diff.columns or ind not in rel_diff.columns:
-                    print(f"Warning: Indicator '{ind}' not found in the results. Skipping.")
-                    continue
-
-                diff_quantiles_df_abs = pd.DataFrame(
-                    {
-                        quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
-                        for quantile in quantiles
-                    },
-                    index=years,
-                )
-
-                diff_quantiles_df_rel = pd.DataFrame(
-                    {
-                        quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
-                        for quantile in quantiles
-                    },
-                    index=years,
-                )
-
-                diff_quantiles_abs[ind] = diff_quantiles_df_abs
-                diff_quantiles_rel[ind] = diff_quantiles_df_rel
-
-            detection_diff_results[scenario_key] = {
-                "abs": diff_quantiles_abs,
-                "rel": diff_quantiles_rel,
-            }
-
-    # Return the scenario outputs and, if calculated, the differences
-    return {
-        "scenario_outputs": scenario_outputs,
-        "detection_diff_results": detection_diff_results if calculate_diff else None
-    }
+    return scenario_outputs
 
 def calculate_scenario_diff_cum_quantiles(
     params: Dict[str, float],
