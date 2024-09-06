@@ -25,11 +25,11 @@ extended_layout.update(
         ticks="outside",
         title_font=dict(
             family="Arial",  # Use Arial Black for bold font
-            size=12,
+            size=10,
             color="black",
         ),
         tickfont=dict(
-            family="Arial", size=12, color="black"  # Set x-axis tick font to Arial
+            family="Arial", size=10, color="black"  # Set x-axis tick font to Arial
         ),
     ),
     yaxis=dict(
@@ -40,23 +40,23 @@ extended_layout.update(
         ticks="outside",
         title_font=dict(
             family="Arial",  # Use Arial Black for bold font
-            size=12,
+            size=10,
             color="black",
         ),
         tickfont=dict(
-            family="Arial", size=12, color="black"  # Set y-axis tick font to Arial
+            family="Arial", size=10, color="black"  # Set y-axis tick font to Arial
         ),
     ),
     title=dict(
         font=dict(
             family="Arial",  # Use Arial Black for bold font
-            size=14,
+            size=12,
             color="black",
         )
     ),
-    font=dict(family="Arial", size=14),  # General font settings for the figure
+    font=dict(family="Arial", size=12),  # General font settings for the figure
     legend=dict(
-        font=dict(family="Arial", size=12, color="black")  # Set legend font to Arial
+        font=dict(family="Arial", size=10, color="black")  # Set legend font to Arial
     ),
 )
 
@@ -114,6 +114,9 @@ def plot_output_ranges(
             else ["" for _ in indicators]
         ),  # Conditionally set titles with bold tags
     )
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=12)  # Set font size for titles
+    
 
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
@@ -270,7 +273,7 @@ def plot_output_ranges(
         padding = 0.05 * y_range  # Consistent padding for all scenarios
         fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
 
-    tick_interval = 50 if history else 1  # Set tick interval based on history
+    tick_interval = 50 if history else 2  # Set tick interval based on history
     fig.update_xaxes(
         tickmode="linear",
         tick0=plot_start_date,
@@ -291,8 +294,8 @@ def plot_output_ranges(
 def plot_outputs_for_covid(
     scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
     target_data: Dict[str, pd.Series],
-    plot_start_date: int = 2010,
-    plot_end_date: int = 2025,
+    plot_start_date: int = 2011,
+    plot_end_date: int = 2024,
     max_alpha: float = 0.7,
 ) -> go.Figure:
     """
@@ -302,7 +305,6 @@ def plot_outputs_for_covid(
     Args:
         scenario_outputs: Dictionary containing outputs for each scenario.
         target_data: Calibration targets.
-        covid_configs: Dictionary containing COVID-19 scenarios with corresponding effects.
         plot_start_date: Start year for the plot.
         plot_end_date: End year for the plot.
         max_alpha: Maximum alpha value to use in patches.
@@ -311,42 +313,34 @@ def plot_outputs_for_covid(
         A Plotly figure with all scenarios plotted in a 2x2 grid.
     """
 
-    covid_configs = {
-        "no_covid": {
-            "detection_reduction": False,
-            "contact_reduction": False,
-        },  # No reduction
-        "detection_and_contact_reduction": {
-            "detection_reduction": True,
-            "contact_reduction": True,
-        },  # With detection + contact reduction
-        "case_detection_reduction_only": {
-            "detection_reduction": True,
-            "contact_reduction": False,
-        },  # No contact reduction
-        "contact_reduction_only": {
-            "detection_reduction": False,
-            "contact_reduction": True,
-        },  # Only contact reduction
+    # Custom titles for each subplot
+    scenario_titles = {
+        "no_covid": "Counterfactual: no COVID-19",
+        "detection_and_contact_reduction": "COVID-19: Detection and contact reduction",
+        "case_detection_reduction_only": "COVID-19: Case detection reduction only",
+        "contact_reduction_only": "COVID-19: Contact reduction only",
     }
+
     # Define the 2x2 grid
     n_cols = 2
-    n_rows = int(np.ceil(len(covid_configs) / n_cols))
+    n_rows = int(np.ceil(len(scenario_titles) / n_cols))
 
     # Create the subplot figure
     fig = make_subplots(
         rows=n_rows,
         cols=n_cols,
         vertical_spacing=0.1,
-        horizontal_spacing=0.05,
+        horizontal_spacing=0.07,
         subplot_titles=[
-            f"<b>{scenario_name.replace('_', ' ').capitalize()}</b>"
-            for scenario_name in covid_configs.keys()
+            f"<b>{scenario_titles.get(scenario_name, scenario_name.replace('_', ' ').capitalize())}</b>"
+            for scenario_name in scenario_titles.keys()
         ],
     )
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=12)  # Set font size for titles
 
     # Loop through each scenario and plot it on the grid
-    for i, (scenario_name, config) in enumerate(covid_configs.items()):
+    for i, (scenario_name, title) in enumerate(scenario_titles.items()):
         row = i // n_cols + 1
         col = i % n_cols + 1
         quantile_outputs = scenario_outputs[scenario_name]['indicator_outputs']
@@ -412,7 +406,7 @@ def plot_outputs_for_covid(
                 col=col,
             )
 
-    # Update layout for the whole figure
+  # Update layout for the whole figure
     fig.update_layout(
         title="",
         xaxis_title="",
@@ -420,9 +414,18 @@ def plot_outputs_for_covid(
         showlegend=False,
         height=600,  # Set the figure height to 600 pixels
         margin=dict(l=10, r=5, t=30, b=40),
+        font=dict(size=8),
+    )
+
+    # Update all x-axes to have the same range based on plot_start_date and plot_end_date
+    fig.update_xaxes(
+        range=[plot_start_date, plot_end_date],  # Set the x-axis range
+        tickmode="linear",  # Set tick mode to linear
+        dtick=2,  # Set the tick interval to 2 years
     )
 
     return fig
+
 
 
 def plot_covid_configs_comparison(
@@ -535,20 +538,20 @@ def plot_covid_configs_comparison(
         )  # Ensure x-axes start at zero for clarity
 
     fig.add_annotation(
-        text="Year",
+        text="<b>Year</b>",
         xref="paper",
         yref="paper",
         x=-0.05,
         y=0.5,
         showarrow=False,
-        font=dict(size=14),
+        font=dict(size=12),
         textangle=-90,
     )
 
     return fig
 
 
-def plot_covid_scenarios_comparison_box(
+def plot_covid_configs_comparison_box(
     diff_quantiles, plot_type="abs"
 ):
     """
@@ -613,7 +616,7 @@ def plot_covid_scenarios_comparison_box(
     fig.update_layout(
         title={
             "text": "Reference: Counterfactual no COVID-19",
-            "x": 0.061,
+            "x": 0.08,
             "xanchor": "left",
             "yanchor": "top",
         },
@@ -627,6 +630,7 @@ def plot_covid_scenarios_comparison_box(
             y=-0.3,  # Move the legend below the x-axis
             xanchor="center",  # Center the legend horizontally
             x=0.5,
+            font=dict(size=10),
             itemsizing="constant", 
             traceorder="normal", 
         ),
@@ -836,7 +840,6 @@ def plot_scenario_output_ranges(
 
     return fig
 
-
 def plot_scenario_output_ranges_by_col(
     scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
     plot_start_date: float = 2025.0,
@@ -845,6 +848,7 @@ def plot_scenario_output_ranges_by_col(
 ) -> go.Figure:
     """
     Plot the credible intervals for incidence and mortality_raw with scenarios as rows.
+    Also plot 2030 SDG targets in purple and 2035 End TB targets in red.
 
     Args:
         scenario_outputs: Dictionary containing scenario outputs, with scenario names as keys.
@@ -880,8 +884,13 @@ def plot_scenario_output_ranges_by_col(
             "<b>TB deaths</b>",
         ],  # Titles for columns
     )
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=12)  # Set font size for titles
 
-    target_color = "red"  # Use a consistent color for 2035 target points
+    # Colors for the targets
+    sdg_target_color = "purple"
+    end_tb_target_color = "red"
+
     show_legend_for_target = True  # To ensure the legend is shown only once
 
     for scenario_idx, (scenario_key, quantile_outputs) in enumerate(
@@ -946,17 +955,34 @@ def plot_scenario_output_ranges_by_col(
                     col=col,
                 )
 
-            # Add specific points for "incidence" and "mortality_raw" at 2035 with consistent color and size
+            # Add specific points for "incidence" and "mortality_raw" at 2030 SDG and 2035 End TB targets
             if indicator_name == "incidence":
+                # 2030 SDG Target (Purple) - Legend rank 1
+                fig.add_trace(
+                    go.Scatter(
+                        x=[2030.0],
+                        y=[31],  # 2030 SDG target for incidence
+                        mode="markers",
+                        marker=dict(size=4, color=sdg_target_color),
+                        name="2030 SDG Target",
+                        showlegend=show_legend_for_target,
+                        legendgroup="Targets",  # Group both targets together
+                        legendrank=2,  # Set legend rank to ensure it appears first
+                    ),
+                    row=row,
+                    col=col,
+                )
+                # 2035 End TB Target (Red) - Legend rank 2
                 fig.add_trace(
                     go.Scatter(
                         x=[2035.0],
-                        y=[10],
+                        y=[10],  # 2035 End TB target for incidence
                         mode="markers",
-                        marker=dict(size=4, color=target_color),
-                        name="2035 End TB Target" if show_legend_for_target else None,
+                        marker=dict(size=4, color=end_tb_target_color),
+                        name="2035 End TB Target",
                         showlegend=show_legend_for_target,
-                        legendgroup="Target",
+                        legendgroup="Targets",  # Group both targets together
+                        legendrank=1,  # Set legend rank to ensure it appears second
                     ),
                     row=row,
                     col=col,
@@ -964,22 +990,36 @@ def plot_scenario_output_ranges_by_col(
                 show_legend_for_target = False  # Only show legend once
 
             if indicator_name == "mortality_raw":
+                # 2030 SDG Target (Purple) - no legend this time, but keep the same group
                 fig.add_trace(
                     go.Scatter(
-                        x=[2035.0],
-                        y=[900],
+                        x=[2030.0],
+                        y=[1913],  # 2030 SDG target for deaths
                         mode="markers",
-                        marker=dict(size=4, color=target_color),
+                        marker=dict(size=4, color=sdg_target_color),
                         showlegend=False,
-                        legendgroup="Target",
+                        legendgroup="Targets",
                     ),
                     row=row,
                     col=col,
                 )
+                # 2035 End TB Target (Red) - no legend this time, but keep the same group
+                fig.add_trace(
+                    go.Scatter(
+                        x=[2035.0],
+                        y=[957],  # 2035 End TB target for deaths
+                        mode="markers",
+                        marker=dict(size=4, color=end_tb_target_color),
+                        showlegend=False,
+                        legendgroup="Targets",
+                    ),
+                    row=row,
+                    col=col,
+                )
+
             fig.update_yaxes(
                 title_text=f"<b>{display_name}</b>",
-                # title_standoff=15,
-                title_font=dict(size=12),
+                title_font=dict(size=10),
                 row=row,
                 col=1,
             )
@@ -991,17 +1031,20 @@ def plot_scenario_output_ranges_by_col(
     fig.update_layout(
         height=680,  # Adjust height based on the number of scenarios
         title="",
-        xaxis_title="",  # No title on individual x-axes
-        # yaxis_title="",
+        xaxis_title="",
         showlegend=True,
         legend=dict(
             title="",
-            orientation="h",
-            yanchor="bottom",
-            y=-0.15,  # Position the legend below the plot
-            xanchor="center",
-            x=0.5,
-            font=dict(size=12),
+            orientation="v",  # Vertical orientation for legend
+            yanchor="top",
+            y= 0.2,  # Position at the top of the last plot
+            xanchor="right",
+            x=1,  # Position to the right
+            font=dict(size=10),
+            tracegroupgap=0,  # Remove any gap between traces
+            itemwidth=40,  # Ensure enough space for both target legends to fit
+            bordercolor="black",  # Set the border color (e.g., black)
+            borderwidth=1,  # Set the border width
         ),
         margin=dict(l=20, r=5, t=30, b=40),  # Adjust margins to accommodate titles
     )
@@ -1010,10 +1053,11 @@ def plot_scenario_output_ranges_by_col(
     fig.update_xaxes(
         tickmode="linear",
         tick0=plot_start_date,
-        dtick=1,  # Set tick increment to 1 year
+        dtick=2,  # Set tick increment to 1 year
     )
 
     return fig
+
 
 def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
     """

@@ -75,7 +75,8 @@ def plot_post_prior_comparison(idata, priors, params_name):
     num_vars = len(req_vars)
     num_rows = (num_vars + 1) // 2  # Ensure even distribution across two columns
 
-    fig, axs = plt.subplots(num_rows, 2, figsize=(10, 5 * num_rows))
+    # Set figure size to match A4 page width (8.27 inches) in portrait mode and adjust height based on rows
+    fig, axs = plt.subplots(num_rows, 2, figsize=(8.27, 2.3 * num_rows), gridspec_kw={'width_ratios': [1.5, 1.5]})  # A4 width in portrait mode
     axs = axs.ravel()
 
     for i_ax, ax in enumerate(axs):
@@ -122,16 +123,15 @@ def plot_post_prior_comparison(idata, priors, params_name):
             )
 
             # Set the title using the descriptive name from params_name
-            title = params_name.get(
-                var_name, var_name
-            )  # Use var_name if not in params_name
-            ax.set_title(title)
+            title = params_name.get(var_name, var_name)  # Use var_name if not in params_name
+            ax.set_title(title, fontsize=12, fontname='Arial')  # Set title to Arial 12
             ax.legend()
         else:
             ax.axis("off")  # Turn off empty subplots if the number of req_vars is odd
 
-    plt.tight_layout()
-    plt.show()
+    # Adjust padding and spacing
+    plt.tight_layout(h_pad=1.0, w_pad=5)  # Increase padding between plots for better fit
+    return fig
 
 
 def plot_trace(idata: az.InferenceData, params_name: dict):
@@ -168,4 +168,4 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
         row_axes[1].set_title("")  # Clear the title for the second column
 
     plt.tight_layout()
-    plt.show()
+    return trace_fig
