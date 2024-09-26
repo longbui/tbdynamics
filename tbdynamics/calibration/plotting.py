@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.io as pio
 from typing import List, Dict
 
-from tbdynamics.constants import indicator_names, quantiles
+from tbdynamics.constants import indicator_names, indicator_legends, quantiles
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names, scenario_names
 
@@ -25,7 +25,7 @@ extended_layout.update(
         ticks="outside",
         title_font=dict(
             family="Arial",  # Use Arial Black for bold font
-            size=10,
+            size=12,
             color="black",
         ),
         tickfont=dict(
@@ -56,16 +56,13 @@ extended_layout.update(
     ),
     font=dict(family="Arial", size=12),  # General font settings for the figure
     legend=dict(
-        font=dict(family="Arial", size=10, color="black")  # Set legend font to Arial
+        font=dict(family="Arial", size=12, color="black")  # Set legend font to Arial
     ),
 )
-
-
 # Create a new template using the updated layout
 custom_template = go.layout.Template(layout=extended_layout)
 # Register the custom template
 pio.templates["custom_template"] = custom_template
-# Set the custom template as the default
 pio.templates.default = "custom_template"
 
 
@@ -84,10 +81,9 @@ def plot_output_ranges(
     for a single run of interest.
 
     Args:
-        quantile_outputs: Dataframes containing derived outputs of interest for each analysis type.
+        quantile_outputs: DataFrames containing derived outputs of interest for each analysis type.
         target_data: Calibration targets.
         indicators: List of indicators to plot.
-        quantiles: List of quantiles for the patches to be plotted over.
         n_cols: Number of columns for the subplots.
         plot_start_date: Start year for the plot.
         plot_end_date: End year for the plot.
@@ -97,6 +93,9 @@ def plot_output_ranges(
     Returns:
         The interactive Plotly figure.
     """
+    # Assume 'indicator_names' and 'quantiles' are imported from external modules
+    # Assume 'indicator_legends' is also imported
+
     nrows = int(np.ceil(len(indicators) / n_cols))
     fig = get_standard_subplot_fig(
         nrows,
@@ -114,9 +113,8 @@ def plot_output_ranges(
             else ["" for _ in indicators]
         ),  # Conditionally set titles with bold tags
     )
-    for annotation in fig['layout']['annotations']:
-        annotation['font'] = dict(size=12)  # Set font size for titles
-    
+    for annotation in fig["layout"]["annotations"]:
+        annotation["font"] = dict(size=12)  # Set font size for titles
 
     for i, ind in enumerate(indicators):
         row, col = get_row_col_for_subplots(i, n_cols)
@@ -151,6 +149,7 @@ def plot_output_ranges(
                     fillcolor=fill_color,
                     line={"width": 0},
                     name=f"{quant}",
+                    showlegend=False,  # Hide legend for quantile traces
                 ),
                 row=row,
                 col=col,
@@ -163,7 +162,8 @@ def plot_output_ranges(
                     x=filtered_data.index,
                     y=filtered_data[0.5],
                     line={"color": "black"},
-                    name="median",
+                    name="Median",
+                    showlegend=False,  # Hide legend for median line
                 ),
                 row=row,
                 col=col,
@@ -209,11 +209,11 @@ def plot_output_ranges(
                         width=2,
                     ),
                     name="",  # No name for legend
+                    showlegend=False,  # Hide legend for point estimates
                 ),
                 row=row,
                 col=col,
             )
-
         else:
             # For other indicators, just plot the point estimate if available
             if ind in target_data.keys():
@@ -231,10 +231,37 @@ def plot_output_ranges(
                         mode="markers",
                         marker={"size": 4.0, "color": "red"},
                         name="",  # No name for legend
+                        showlegend=False,  # Hide legend for point estimates
                     ),
                     row=row,
                     col=col,
                 )
+
+        # Add indicator legend as annotation at the bottom right of each subplot
+        legend_text = indicator_legends.get(ind, "")
+        if legend_text:
+            # Compute axis ID for the subplot
+            axis_id = (row - 1) * n_cols + col
+            # Determine xref and yref for the annotation
+            if axis_id == 1:
+                xref = "x domain"
+                yref = "y domain"
+            else:
+                xref = f"x{axis_id} domain"
+                yref = f"y{axis_id} domain"
+
+            # Add the annotation with a red point before the legend text
+            fig.add_annotation(
+                text=f'<span style="color:red; font-size:12px">&#9679;</span> <span style="font-size:12px">{legend_text}</span>',
+                x=1,  # Right end of the x-axis domain
+                y=0,  # Bottom of the y-axis domain
+                xref=xref,
+                yref=yref,
+                xanchor="right",
+                yanchor="bottom",
+                showarrow=False,
+                font=dict(size=10),
+            )
 
         # Update x-axis range to fit the filtered data
         x_min = max(filtered_data.index.min(), current_plot_start_date)
@@ -315,10 +342,10 @@ def plot_outputs_for_covid(
 
     # Custom titles for each subplot
     scenario_titles = {
-        "no_covid": "Counterfactual: no COVID-19",
-        "detection_and_contact_reduction": "COVID-19: Detection and contact reduction",
-        "case_detection_reduction_only": "COVID-19: Case detection reduction only",
-        "contact_reduction_only": "COVID-19: Contact reduction only",
+        "no_covid": "Assumption 1",
+        "detection_and_contact_reduction": "Assumption 2",
+        "case_detection_reduction_only": "Assumption 3",
+        "contact_reduction_only": "Assumption 4",
     }
 
     # Define the 2x2 grid
@@ -336,14 +363,14 @@ def plot_outputs_for_covid(
             for scenario_name in scenario_titles.keys()
         ],
     )
-    for annotation in fig['layout']['annotations']:
-        annotation['font'] = dict(size=12)  # Set font size for titles
+    for annotation in fig["layout"]["annotations"]:
+        annotation["font"] = dict(size=12)  # Set font size for titles
 
     # Loop through each scenario and plot it on the grid
     for i, (scenario_name, title) in enumerate(scenario_titles.items()):
         row = i // n_cols + 1
         col = i % n_cols + 1
-        quantile_outputs = scenario_outputs[scenario_name]['indicator_outputs']
+        quantile_outputs = scenario_outputs[scenario_name]["indicator_outputs"]
         data = quantile_outputs["notification"]
 
         # Filter data by date range
@@ -406,7 +433,7 @@ def plot_outputs_for_covid(
                 col=col,
             )
 
-  # Update layout for the whole figure
+    # Update layout for the whole figure
     fig.update_layout(
         title="",
         xaxis_title="",
@@ -425,7 +452,6 @@ def plot_outputs_for_covid(
     )
 
     return fig
-
 
 
 def plot_covid_configs_comparison(
@@ -551,9 +577,7 @@ def plot_covid_configs_comparison(
     return fig
 
 
-def plot_covid_configs_comparison_box(
-    diff_quantiles, plot_type="abs"
-):
+def plot_covid_configs_comparison_box(diff_quantiles, plot_type="abs"):
     """
     Plot the median differences with error bars indicating the range from 0.025 to 0.975 quantiles
     for given indicators across multiple years in a single plot.
@@ -615,7 +639,7 @@ def plot_covid_configs_comparison_box(
 
     fig.update_layout(
         title={
-            "text": "Reference: Counterfactual no COVID-19",
+            "text": "Reference: COVID-19 has no effect on TB notifications",
             "x": 0.08,
             "xanchor": "left",
             "yanchor": "top",
@@ -631,8 +655,8 @@ def plot_covid_configs_comparison_box(
             xanchor="center",  # Center the legend horizontally
             x=0.5,
             font=dict(size=10),
-            itemsizing="constant", 
-            traceorder="normal", 
+            itemsizing="constant",
+            traceorder="normal",
         ),
         margin=dict(l=20, r=5, t=30, b=40),
     )
@@ -840,6 +864,7 @@ def plot_scenario_output_ranges(
 
     return fig
 
+
 def plot_scenario_output_ranges_by_col(
     scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
     plot_start_date: float = 2025.0,
@@ -884,8 +909,8 @@ def plot_scenario_output_ranges_by_col(
             "<b>TB deaths</b>",
         ],  # Titles for columns
     )
-    for annotation in fig['layout']['annotations']:
-        annotation['font'] = dict(size=12)  # Set font size for titles
+    for annotation in fig["layout"]["annotations"]:
+        annotation["font"] = dict(size=12)  # Set font size for titles
 
     # Colors for the targets
     sdg_target_color = "purple"
@@ -1037,7 +1062,7 @@ def plot_scenario_output_ranges_by_col(
             title="",
             orientation="v",  # Vertical orientation for legend
             yanchor="top",
-            y= 0.2,  # Position at the top of the last plot
+            y=0.2,  # Position at the top of the last plot
             xanchor="right",
             x=1,  # Position to the right
             font=dict(size=10),
@@ -1073,7 +1098,9 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
     # Fixed indicators
     indicators = ["cumulative_diseased", "cumulative_deaths"]
     colors = px.colors.qualitative.Plotly
-    indicator_colors = {ind: colors[i % len(colors)] for i, ind in enumerate(indicators)}
+    indicator_colors = {
+        ind: colors[i % len(colors)] for i, ind in enumerate(indicators)
+    }
 
     fig = go.Figure()
 
@@ -1087,9 +1114,15 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
         upper_errors = []
 
         for scenario in scenarios:
-            median_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.500]
-            lower_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.025]
-            upper_val = diff_quantiles[scenario][plot_type][indicator].loc[2035.0, 0.975]
+            median_val = diff_quantiles[scenario][plot_type][indicator].loc[
+                2035.0, 0.500
+            ]
+            lower_val = diff_quantiles[scenario][plot_type][indicator].loc[
+                2035.0, 0.025
+            ]
+            upper_val = diff_quantiles[scenario][plot_type][indicator].loc[
+                2035.0, 0.975
+            ]
 
             medians.append(median_val)
             lower_errors.append(median_val - lower_val)
@@ -1099,7 +1132,9 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
         fig.add_trace(
             go.Bar(
                 y=[
-                    scenario_names.get(scenario, scenario.replace("_", " ").capitalize())
+                    scenario_names.get(
+                        scenario, scenario.replace("_", " ").capitalize()
+                    )
                     for scenario in scenarios
                 ],  # Descriptive scenario names
                 x=medians,  # Median values on x-axis
@@ -1114,7 +1149,9 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
                     thickness=1,  # Thicker error bars
                     width=2,  # Wider error bars
                 ),
-                name=indicator.replace("_", " ").capitalize(),  # Use indicator name for legend
+                name=indicator.replace(
+                    "_", " "
+                ).capitalize(),  # Use indicator name for legend
             )
         )
 
@@ -1127,7 +1164,7 @@ def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
     # Update layout with tight margins and ordered legend
     fig.update_layout(
         title={
-            "text": "Reference: Status-quo scenario",
+            "text": "Reference: <i>'Status-quo'</i> scenario",
             "x": 0.99,
             "xanchor": "right",
             "yanchor": "top",

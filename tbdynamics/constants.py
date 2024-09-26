@@ -44,6 +44,16 @@ indicator_names = {
     "detection_rate": "Screening profile",
 }
 
+indicator_legends = {
+        "prevalence_smear_positive": "National prevalence survey",
+        "adults_prevalence_pulmonary": "National prevalence survey ",
+        "incidence": "WHO's estimates",
+        "mortality_raw": "WHO's estimates",
+        "notification": "Reported to WHO",
+        "percentage_latent": "Ding et al. (2022)",
+        "total_population": "National census"
+    }
+
 params_name = {
     "contact_rate": "Transmission scaling factor",
     "rr_infection_latent": "Relative risk of infection for individuals with latent infection",
@@ -88,3 +98,4 @@ covid_configs = {
             "contact_reduction": True
         }  # Only contact reduction
     }
+
