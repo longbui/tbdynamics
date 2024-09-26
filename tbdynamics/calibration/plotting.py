@@ -343,9 +343,9 @@ def plot_outputs_for_covid(
     # Custom titles for each subplot
     scenario_titles = {
         "no_covid": "Assumption 1",
-        "detection_and_contact_reduction": "Assumption 2",
-        "case_detection_reduction_only": "Assumption 3",
-        "contact_reduction_only": "Assumption 4",
+        "case_detection_reduction_only": "Assumption 2",
+        "contact_reduction_only": "Assumption 3",
+        "detection_and_contact_reduction": "Assumption 4",
     }
 
     # Define the 2x2 grid
@@ -654,7 +654,7 @@ def plot_covid_configs_comparison_box(diff_quantiles, plot_type="abs"):
             y=-0.3,  # Move the legend below the x-axis
             xanchor="center",  # Center the legend horizontally
             x=0.5,
-            font=dict(size=10),
+            font=dict(size=12),
             itemsizing="constant",
             traceorder="normal",
         ),
@@ -1065,7 +1065,7 @@ def plot_scenario_output_ranges_by_col(
             y=0.2,  # Position at the top of the last plot
             xanchor="right",
             x=1,  # Position to the right
-            font=dict(size=10),
+            # font=dict(size=12),
             tracegroupgap=0,  # Remove any gap between traces
             itemwidth=40,  # Ensure enough space for both target legends to fit
             bordercolor="black",  # Set the border color (e.g., black)

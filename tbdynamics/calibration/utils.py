@@ -565,7 +565,7 @@ def calculate_scenario_diff_cum_quantiles(
     idata_extract: az.InferenceData,
     detection_multipliers: List[float],
     cumulative_start_time: int = 2020,
-    scenario_choice: int = 2,
+    covid_choice: int = 2,
     years: List[int] = [2021, 2022, 2025, 2030, 2035],
 ) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
     """
@@ -585,15 +585,15 @@ def calculate_scenario_diff_cum_quantiles(
     """
 
     # Set scenario configuration based on scenario_choice
-    if scenario_choice == 1:
-        scenario_config = {"detection_reduction": True, "contact_reduction": True}
-    elif scenario_choice == 2:
-        scenario_config = {"detection_reduction": True, "contact_reduction": False}
+    if covid_choice == 1:
+        covid_config = {"detection_reduction": True, "contact_reduction": True}
+    elif covid_choice == 2:
+        covid_config = {"detection_reduction": True, "contact_reduction": False}
     else:
         raise ValueError("Invalid scenario_choice. Choose 1 or 2.")
 
     # Base scenario (without improved detection)
-    bcm = get_bcm(params, scenario_config)
+    bcm = get_bcm(params, covid_config)
     base_results = esamp.model_results_for_samples(idata_extract, bcm).results
 
     # Calculate cumulative sums for the base scenario
@@ -609,7 +609,7 @@ def calculate_scenario_diff_cum_quantiles(
 
     for multiplier in detection_multipliers:
         # Improved detection scenario
-        bcm = get_bcm(params, scenario_config, multiplier)
+        bcm = get_bcm(params, covid_config, multiplier)
         scenario_result = esamp.model_results_for_samples(idata_extract, bcm).results
 
         # Calculate cumulative sums for each scenario
