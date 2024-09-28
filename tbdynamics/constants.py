@@ -38,7 +38,7 @@ indicator_names = {
     "percentage_latent": "LTBI prevalence (%)",
     "prevalence_pulmonary": "Prevalence of pulmonary TB (/100,000/y)",
     "case_detection_rate": "Case detection rate",
-    "mortality_raw": "Number ofTB deaths",
+    "mortality_raw": "Number of TB deaths",
     "adults_prevalence_pulmonary": "Adults pulmonary TB prevalence (/100,000/y)",
     "prevalence_smear_positive": "Adults SPTB prevalence (/100,000/y)",
     "detection_rate": "Screening profile",
@@ -50,7 +50,7 @@ indicator_legends = {
         "incidence": "WHO's estimates",
         "mortality_raw": "WHO's estimates",
         "notification": "Reported to WHO",
-        "percentage_latent": "Ding et al. (2022)",
+        # "percentage_latent": "Ding et al. (2022)",
         "total_population": "National census"
     }
 
