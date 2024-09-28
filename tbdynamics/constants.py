@@ -32,15 +32,15 @@ PLOT_START_DATE = 1800
 PLOT_END_DATE = 2035
 
 indicator_names = {
-    "total_population": "Total population",
-    "notification": "TB notifications",
-    "incidence": "TB incidence (per 100,000)",
-    "percentage_latent": "Percentage of latent TB infection (%)",
-    "prevalence_pulmonary": "Prevalence of pulmonary TB (per 100,000)",
+    "total_population": "Population size",
+    "notification": "Number of TB notifications",
+    "incidence": "TB incidence (/100,000/y)",
+    "percentage_latent": "LTBI prevalence (%)",
+    "prevalence_pulmonary": "Prevalence of pulmonary TB (/100,000/y)",
     "case_detection_rate": "Case detection rate",
-    "mortality_raw": "TB deaths",
-    "adults_prevalence_pulmonary": "Prevalence of adults pulmonary TB (per 100,000)",
-    "prevalence_smear_positive": "Prevalence of adults smear positive pulmonary TB (per 100,000)",
+    "mortality_raw": "Number ofTB deaths",
+    "adults_prevalence_pulmonary": "Adults pulmonary TB prevalence (/100,000/y)",
+    "prevalence_smear_positive": "Adults SPTB prevalence (/100,000/y)",
     "detection_rate": "Screening profile",
 }
 

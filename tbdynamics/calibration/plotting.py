@@ -121,7 +121,7 @@ def plot_output_ranges(
 
         # Set plot_start_date to 2005 if the indicator is "prevalence_smear_positive"
         current_plot_start_date = (
-            2005 if ind == "prevalence_smear_positive" else plot_start_date
+            2006 if ind == "prevalence_smear_positive" else plot_start_date
         )
 
         # Filter data by date range
@@ -238,7 +238,7 @@ def plot_output_ranges(
 
         # Add indicator legend as annotation at the bottom right of each subplot
         legend_text = indicator_legends.get(ind, "")
-        if legend_text:
+        if legend_text and not history:
             # Compute axis ID for the subplot
             axis_id = (row - 1) * n_cols + col
             # Determine xref and yref for the annotation
