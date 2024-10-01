@@ -5,20 +5,21 @@ import numpy as np
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
+INPUT_PATH = DATA_PATH / "inputs"
 
 
 def get_birth_rate():
-    return pd.read_csv(Path(DATA_PATH / "vn_birth.csv"), index_col=0)["value"]
+    return pd.read_csv(Path(INPUT_PATH / "vn_birth.csv"), index_col=0)["value"]
 
 
 def get_death_rate():
     return pd.read_csv(
-        Path(DATA_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"]
+        Path(INPUT_PATH / "vn_cdr.csv"), usecols=["Age", "Time", "Population", "Deaths"]
     ).set_index(["Time", "Age"])
 
 
 def get_immigration():
-    series = pd.read_csv(Path(DATA_PATH / "immi.csv"), index_col=0)["value"]
+    series = pd.read_csv(Path(INPUT_PATH / "immi.csv"), index_col=0)["value"]
     return series.astype(np.float64)
 
 

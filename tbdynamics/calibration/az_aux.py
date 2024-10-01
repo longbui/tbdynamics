@@ -76,7 +76,7 @@ def plot_post_prior_comparison(idata, priors, params_name):
     num_rows = (num_vars + 1) // 2  # Ensure even distribution across two columns
 
     # Set figure size to match A4 page width (8.27 inches) in portrait mode and adjust height based on rows
-    fig, axs = plt.subplots(num_rows, 2, figsize=(28, 2.3 * num_rows), gridspec_kw={'width_ratios': [1.5, 1.5]})  # A4 width in portrait mode
+    fig, axs = plt.subplots(num_rows, 2, figsize=(28, 6.2 * num_rows))  # A4 width in portrait mode
     axs = axs.ravel()
 
     for i_ax, ax in enumerate(axs):
@@ -135,6 +135,9 @@ def plot_post_prior_comparison(idata, priors, params_name):
     return fig
 
 
+import matplotlib.pyplot as plt
+import arviz as az
+
 def plot_trace(idata: az.InferenceData, params_name: dict):
     """
     Plot trace plots for the InferenceData object, excluding parameters containing '_dispersion'.
@@ -143,8 +146,11 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
     Args:
         idata: InferenceData object from ArviZ containing calibration outputs.
         params_name: Dictionary mapping parameter names to descriptive titles.
+
+    Returns:
+        A Matplotlib figure object containing the trace plots.
     """
-    # Filter out parameters containing '_dispersion'
+    # Filter out parameters containing '_dispersion' and 'contact_reduction'
     filtered_posterior = idata.posterior.drop_vars(
         [var for var in idata.posterior.data_vars if "_dispersion" in var or var == "contact_reduction"]
     )
@@ -155,18 +161,16 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
     )
 
     # Set titles for each row of plots
-    var_names = list(
-        filtered_posterior.data_vars.keys()
-    )  # Get the list of variable names
+    var_names = list(filtered_posterior.data_vars.keys())  # Get the list of variable names
     for i, var_name in enumerate(var_names):
-        row_axes = trace_fig[i, :]  # Get the axes in the current row
-        title = params_name.get(
-            var_name, var_name
-        )  # Get the title from params_name or default to var_name
-        row_axes[0].set_title(
-            title, fontsize=30, loc="center"
-        )  # Set title for the first column
-        row_axes[1].set_title("")  # Clear the title for the second column
+        for ax in trace_fig[i]:
+            title = params_name.get(var_name, var_name)  # Get the title from params_name or default to var_name
+            ax.set_title(title, fontsize=30, loc='center')  # Set title for each axis
 
     plt.tight_layout()
-    return trace_fig
+
+    fig = plt.gcf()  # Get the current figure
+    plt.close(fig)  # Close the figure to free memory but do not save it here
+
+    return fig  # Return the figure object
+

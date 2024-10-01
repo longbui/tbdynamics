@@ -2,7 +2,7 @@
 name = "tbdynamics"
 version = "0.1.0"
 description = "Mathematical modelling of TB in Vietnam"
-authors = ["Long Bui", "James Trauer"]
+authors = ["Long Bui", "James Trauer", "Romain Ragonnet"]
 license = "BSD-2-Clause"
 readme = "README.md"
 
@@ -12,8 +12,8 @@ ipython = "8.12.3"
 summerepi2 = "1.3.4"
 estival = "0.4.9"
 tables = "3.8.0"
-jax = "0.4.33"
-jaxlib = "0.4.33"
+jax = "0.4.24"
+jaxlib = "0.4.24"
 arviz = "0.17.0"
 scipy = "1.12.0"
 pymc = "5.2.0"
