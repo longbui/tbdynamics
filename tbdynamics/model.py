@@ -1,6 +1,5 @@
 from pathlib import Path
-import numpy as np
-from typing import List, Dict
+from typing import Dict
 from summer2 import CompartmentalModel
 from summer2.functions.time import (
     get_sigmoidal_interpolation_function,
@@ -32,19 +31,14 @@ def build_model(
     improved_detection_multiplier: float = None,
 ) -> CompartmentalModel:
     """
-    Builds and returns a compartmental model for epidemiological studies, incorporating
+    Builds and returns a compartmental model for epidemiological analysis, incorporating
     various flows and stratifications based on age, organ status, and treatment outcomes.
 
     Args:
-        compartments: List of compartment names in the model.
-        latent_compartments: List of latent compartment names.
-        infectious_compartments: List of infectious compartment names.
-        age_strata: List of age groups for stratification.
-        time_start: Start time for the model simulation.
-        time_end: End time for the model simulation.
-        time_step: Time step for the model simulation.
         fixed_params: Dictionary of parameters with fixed values.
         matrix: Mixing matrix for age stratification.
+        covid_effects: 
+        improved_detection_multiplier:
 
     Returns:
         A configured CompartmentalModel object.
@@ -58,10 +52,10 @@ def build_model(
 
     birth_rates = get_birth_rate()
     death_rates = get_death_rate()
-    death_df = process_death_rate(death_rates, age_strata, birth_rates.index)
+    death_df = process_death_rate(death_rates, age_strata, birth_rates.index)  # Is this definitely supposed to be birth_rates.index and not death_rates.index
     model.set_initial_population({"susceptible": Parameter("start_population_size")})
     seed_infectious(model)
-    # add birth flow
+    # Add birth flow
     crude_birth_rate = get_sigmoidal_interpolation_function(
         birth_rates.index, birth_rates.values
     )
@@ -69,22 +63,22 @@ def build_model(
     # Add natural death flow
     model.add_universal_death_flows(
         "universal_death", 1.0
-    )  # Adjusted later by age stratification
-    add_infection_flow(model, covid_effects['contact_reduction'])
+    )  # Placeholder to adjust later in age stratification
+    add_infection_flow(model, covid_effects["contact_reduction"])
     add_latency_flow(model)
     # Add self-recovery flow
     model.add_transition_flow(
         "self_recovery", 1.0, "infectious", "recovered"
-    )  # later adjusted by organ status
+    )  # Placeholder to adjust later in organ stratification
     # Add detection
     model.add_transition_flow(
         "detection", 1.0, "infectious", "on_treatment"
-    )  # will be adjusted later
+    )  # Placeholder to adjust later
     add_treatment_related_outcomes(model)
     # Add infect death flow
     model.add_death_flow(
         "infect_death", 1.0, "infectious"
-    )  # later adjusted by organ status
+    )  # Placeholder to adjust later in organ stratification
     age_strat = get_age_strat(
         compartments,
         infectious_compartments,
@@ -94,7 +88,7 @@ def build_model(
         matrix,
     )
     model.stratify_with(age_strat)
-    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params, covid_effects['detection_reduction'], improved_detection_multiplier)
+    organ_strat = get_organ_strat(infectious_compartments, organ_strata, fixed_params, covid_effects["detection_reduction"], improved_detection_multiplier)
     model.stratify_with(organ_strat)
     request_model_outputs(
         model,
@@ -103,12 +97,12 @@ def build_model(
         infectious_compartments,
         age_strata,
         organ_strata,
-        covid_effects['detection_reduction']
+        covid_effects["detection_reduction"]
     )
     return model
 
 
-def add_infection_flow(model: CompartmentalModel, contact_reduction):
+def add_infection_flow(model: CompartmentalModel, contact_reduction: bool):
     """
     Adds infection flows to the model, allowing for the transition of individuals from
     specific compartments (e.g., susceptible, late latent, recovered) to the early latent
@@ -117,6 +111,7 @@ def add_infection_flow(model: CompartmentalModel, contact_reduction):
 
     Args:
         model: The compartmental model to which the infection flows are to be added.
+        contact_reduction: 
 
     Each flow is defined by a pair (origin, modifier):
     - `origin`: The name of the compartment from which individuals will transition.
@@ -124,7 +119,10 @@ def add_infection_flow(model: CompartmentalModel, contact_reduction):
       If `None`, the contact rate is used without modification.
     """
     infection_flows = [
-        ("susceptible", None),
+        (
+            "susceptible", 
+            None,
+        ),
         (
             "late_latent",
             "rr_infection_latent",
@@ -148,7 +146,7 @@ def add_infection_flow(model: CompartmentalModel, contact_reduction):
         model.add_infection_frequency_flow(process, flow_rate, origin, "early_latent")
 
 
-def add_latency_flow(model):
+def add_latency_flow(model: CompartmentalModel):
     """
     Adds latency flows to the compartmental model, representing the progression of the disease
     through different stages of latency. This function defines three main flows: stabilization,
@@ -177,7 +175,7 @@ def add_latency_flow(model):
         model.add_transition_flow(*latency_flow)
 
 
-def add_treatment_related_outcomes(model: CompartmentalModel) -> None:
+def add_treatment_related_outcomes(model: CompartmentalModel):
     """
     Adds treatment-related outcome flows to the compartmental model. This includes flows for treatment recovery,
     treatment-related death, and relapse. Initial rates are set as placeholders, with the expectation that

@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 import numpy as np
+from typing import List
 
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
@@ -24,7 +25,11 @@ def get_immigration():
     return series.astype(np.float64)
 
 
-def process_death_rate(data, age_strata, year_indices):
+def process_death_rate(
+    data: pd.DataFrame,
+    age_strata: List[int], 
+    year_indices: List[int],
+) -> pd.DataFrame:
     """
     Processes mortality data to compute age-stratified death rates for specific years.
 
@@ -35,19 +40,19 @@ def process_death_rate(data, age_strata, year_indices):
     function also adjusts age groups to include an "100+" category and handles the mapping
     of raw age groups to the defined age strata.
 
-    Parameters:
-    - data (pd.DataFrame): A pandas DataFrame indexed by (year, age_group) with at least
-      two columns: 'Deaths' and 'Population', representing the total deaths and total
-      population for each age group in each year, respectively.
-    - age_strata (list of int): A list of integers representing the starting age of each
-      age stratum to be considered. The list must be sorted in ascending order.
-    - year_indices (list of int): A list of integers representing the years of interest
-      for which the death rates are to be calculated.
+    Args:
+        data: A pandas DataFrame indexed by (year, age_group) with at least
+            two columns: 'Deaths' and 'Population', representing the total deaths and total
+            population for each age group in each year, respectively.
+        age_strata: A list of integers representing the starting age of each
+            age stratum to be considered. The list must be sorted in ascending order.
+        year_indices: A list of integers representing the years of interest
+            for which the death rates are to be calculated.
 
     Returns:
-    - pd.DataFrame: A pandas DataFrame indexed by the mid-point year values (year + 0.5)
-      with columns for each age stratum defined in `age_strata`. Each cell contains the
-      death rate for that age stratum and year.
+        A pandas DataFrame indexed by the mid-point year values (year + 0.5)
+            with columns for each age stratum defined in `age_strata`. Each cell contains the
+            death rate for that age stratum and year.
     """
     years = set(data.index.get_level_values(0))
     age_groups = set(data.index.get_level_values(1))
