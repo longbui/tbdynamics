@@ -3,7 +3,7 @@ total_population:
 
 notification: #from https://www.who.int/teams/global-tuberculosis-programme/tb-reports/global-tuberculosis-report-2023/tb-diagnosis---treatment/2-1-case-notifications
   # 2010: 99022
-  2011: 100518
+  # 2011: 100518
   2012: 103906
   2013: 102196
   2014: 102087
@@ -23,11 +23,11 @@ prop_smear_positive:
 incidence:
   2022: [176.0, 121.0, 251.0]
 
-# percentage_latent:
-#   2019: 43.0
+percentage_latent:
+  2019: 43.0
 
-mortality_raw:
-  2018: 13850.0
+# mortality_raw:
+#   2018: 13850.0
 
 case_notification_rate: 
   2010: 48.0

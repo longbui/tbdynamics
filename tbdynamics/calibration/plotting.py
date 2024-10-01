@@ -156,18 +156,17 @@ def plot_output_ranges(
             )
 
         # Plot the median line
-        if 0.5 in filtered_data.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=filtered_data.index,
-                    y=filtered_data[0.5],
-                    line={"color": "black"},
-                    name="Median",
-                    showlegend=False,  # Hide legend for median line
-                ),
-                row=row,
-                col=col,
-            )
+        fig.add_trace(
+            go.Scatter(
+                x=filtered_data.index,
+                y=filtered_data[0.5],
+                line={"color": "black"},
+                name="Median",
+                showlegend=False,  # Hide legend for median line
+            ),
+            row=row,
+            col=col,
+        )
 
         # Plot the point estimates with error bars for indicators with uncertainty bounds
         if ind in [
@@ -253,52 +252,22 @@ def plot_output_ranges(
             # Add the annotation with a red point before the legend text
             fig.add_annotation(
                 text=f'<span style="color:red; font-size:12px">&#9679;</span> <span style="font-size:12px">{legend_text}</span>',
-                x=1,  # Right end of the x-axis domain
-                y=0,  # Bottom of the y-axis domain
+                x=0.99,  # Right end of the x-axis domain
+                y=0.05,  # Bottom of the y-axis domain
                 xref=xref,
                 yref=yref,
                 xanchor="right",
                 yanchor="bottom",
                 showarrow=False,
-                font=dict(size=10),
+                bordercolor="black",  # Color of the border
+                borderwidth=1,  # Thickness of the border
+                # borderpad=5,  # Padding between text and border
             )
 
         # Update x-axis range to fit the filtered data
         x_min = max(filtered_data.index.min(), current_plot_start_date)
         x_max = filtered_data.index.max()
         fig.update_xaxes(range=[x_min, x_max], row=row, col=col)
-
-        # Update y-axis range dynamically for each subplot
-        y_min = 0
-        y_max = max(
-            filtered_data.max().max(),
-            (
-                max(
-                    [
-                        filtered_target.max()
-                        for filtered_target in [
-                            filtered_target,
-                            filtered_lower_bound,
-                            filtered_upper_bound,
-                        ]
-                    ]
-                )
-                if ind
-                in [
-                    "prevalence_smear_positive",
-                    "adults_prevalence_pulmonary",
-                    "incidence",
-                ]
-                else (
-                    filtered_target.max()
-                    if ind in target_data.keys()
-                    else float("-inf")
-                )
-            ),
-        )
-        y_range = y_max - y_min
-        padding = 0.05 * y_range  # Consistent padding for all scenarios
-        fig.update_yaxes(range=[y_min - padding, y_max + padding], row=row, col=col)
 
     tick_interval = 50 if history else 2  # Set tick interval based on history
     fig.update_xaxes(
@@ -322,7 +291,7 @@ def plot_outputs_for_covid(
     covid_outputs: Dict[str, Dict[str, pd.DataFrame]],
     target_data: Dict[str, pd.Series],
     plot_start_date: int = 2011,
-    plot_end_date: int = 2024,
+    plot_end_date: int = 2025,
     max_alpha: float = 0.7,
 ) -> go.Figure:
     """
@@ -360,7 +329,7 @@ def plot_outputs_for_covid(
         rows=n_rows,
         cols=n_cols,
         vertical_spacing=0.1,
-        horizontal_spacing=0.07,
+        horizontal_spacing=0.05,
         subplot_titles=[
             f"<b>{covid_titles.get(scenario_name, scenario_name.replace('_', ' ').capitalize())}</b>"
             for scenario_name in covid_titles.keys()
@@ -442,14 +411,20 @@ def plot_outputs_for_covid(
             text=f"Loo-IC: {loo_ic:.2f}",
             xref=f"x{i+1}",  # Refers to the x-axis of the current subplot
             yref=f"y{i+1}",  # Refers to the y-axis of the current subplot
-            x=plot_start_date,
-            y=0.1,  # Place it near the bottom left
+            x=plot_start_date + 0.5,
+            y=5000.0,  # Place it near the bottom left
             showarrow=False,
             font=dict(size=12, color="black"),
             xanchor="left",
             yanchor="bottom",
+            bordercolor="black",  # Color of the border
+            borderwidth=1,  # Thickness of the border
         )
-
+    fig.update_xaxes(
+        tickmode="linear",
+        tick0=plot_start_date,
+        dtick=2,  # Adjust tick increment
+    )
     # Update layout for the whole figure
     fig.update_layout(
         title="",
@@ -461,15 +436,7 @@ def plot_outputs_for_covid(
         font=dict(size=8),
     )
 
-    # Update all x-axes to have the same range based on plot_start_date and plot_end_date
-    fig.update_xaxes(
-        range=[plot_start_date, plot_end_date],  # Set the x-axis range
-        tickmode="linear",  # Set tick mode to linear
-        dtick=2,  # Set the tick interval to 2 years
-    )
-
     return fig
-
 
 
 def plot_covid_configs_comparison(
@@ -671,7 +638,7 @@ def plot_covid_configs_comparison_box(
         legend=dict(
             orientation="h",  # Horizontal orientation for the legend
             yanchor="bottom",  # Anchor the legend at the bottom
-            y=-0.3,  # Move the legend below the x-axis
+            y=-0.2,  # Move the legend below the x-axis
             xanchor="center",  # Center the legend horizontally
             x=0.5,
             font=dict(size=12),
@@ -706,185 +673,6 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def plot_scenario_output_ranges(
-    scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
-    indicators: List[str],
-    n_cols: int,
-    plot_start_date: int = 1800,
-    plot_end_date: int = 2023,
-    max_alpha: float = 0.7,
-) -> go.Figure:
-    """
-    Plot the credible intervals for each indicator in a single plot across multiple scenarios.
-
-    Args:
-        scenario_outputs: Dictionary containing scenario outputs, with scenario names as keys.
-        indicators: List of indicators to plot.
-        n_cols: Number of columns for the subplots.
-        plot_start_date: Start year for the plot.
-        plot_end_date: End year for the plot.
-        max_alpha: Maximum alpha value to use in patches.
-
-    Returns:
-        The interactive Plotly figure.
-    """
-    nrows = int(np.ceil(len(indicators) / n_cols))
-    fig = get_standard_subplot_fig(
-        nrows,
-        n_cols,
-        [
-            (
-                indicator_names[ind]
-                if ind in indicator_names
-                else ind.replace("_", " ").capitalize()
-            )
-            for ind in indicators
-        ],
-    )
-
-    base_color = (0, 30, 180)  # Base scenario RGB color as a tuple
-    target_color = "red"  # Use a consistent color for 2035 target points
-    scenario_colors = (
-        px.colors.qualitative.Plotly
-    )  # Use Plotly colors for other scenarios
-
-    for i, ind in enumerate(indicators):
-        row, col = get_row_col_for_subplots(i, n_cols)
-        for scenario_idx, (scenario_name, quantile_outputs) in enumerate(
-            scenario_outputs.items()
-        ):
-            display_name = scenario_names.get(
-                scenario_name, scenario_name
-            )  # Get display name
-
-            # Determine the color to use for this scenario
-            if (
-                scenario_name.lower() == "base_scenario"
-            ):  # Check if it's the base scenario
-                rgb_color = base_color
-            else:
-                hex_color = scenario_colors[scenario_idx % len(scenario_colors)]
-                rgb_color = hex_to_rgb(hex_color)  # Convert hex to RGB tuple
-
-            data = quantile_outputs[ind]
-
-            # Filter data by date range
-            filtered_data = data[
-                (data.index >= plot_start_date) & (data.index <= plot_end_date)
-            ]
-
-            # Show the legend only for the first indicator
-            show_legend = i == 0
-
-            for q, quant in enumerate(quantiles):
-                if quant not in filtered_data.columns:
-                    continue
-
-                alpha = (
-                    min(
-                        (
-                            quantiles.index(quant),
-                            len(quantiles) - quantiles.index(quant),
-                        )
-                    )
-                    / (len(quantiles) / 2)
-                    * max_alpha
-                )
-                fill_color = f"rgba({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]}, {alpha})"  # Use rgba with appropriate alpha
-
-                fig.add_trace(
-                    go.Scatter(
-                        x=filtered_data.index,
-                        y=filtered_data[quant],
-                        fill="tonexty",
-                        fillcolor=fill_color,
-                        line={"width": 0},
-                        name=(
-                            display_name if quant == 0.5 and show_legend else None
-                        ),  # Show legend only for the first figure
-                        showlegend=quant == 0.5
-                        and show_legend,  # Show legend only for the first figure
-                        legendgroup=display_name,
-                    ),
-                    row=row,
-                    col=col,
-                )
-
-            # Plot the median line
-            if 0.5 in filtered_data.columns:
-                fig.add_trace(
-                    go.Scatter(
-                        x=filtered_data.index,
-                        y=filtered_data[0.5],
-                        line={
-                            "color": f"rgb({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]})"
-                        },
-                        name=(
-                            display_name if show_legend else None
-                        ),  # Show legend only for the first figure
-                        showlegend=False,
-                    ),
-                    row=row,
-                    col=col,
-                )
-
-        # Add specific points for "incidence" and "mortality_raw" at 2035 with consistent color
-        if ind == "incidence":
-            fig.add_trace(
-                go.Scatter(
-                    x=[2035],
-                    y=[10],
-                    mode="markers",
-                    marker=dict(size=4, color=target_color),
-                    name="2035 End TB Target",
-                    showlegend=True if i == 0 else False,  # Show legend only once
-                    legendgroup="Target",
-                ),
-                row=row,
-                col=col,
-            )
-
-        if ind == "mortality_raw":
-            fig.add_trace(
-                go.Scatter(
-                    x=[2035],
-                    y=[900],
-                    mode="markers",
-                    marker=dict(size=4, color=target_color),
-                    showlegend=False,  # No additional legend entry for repeated points
-                    legendgroup="Target",
-                ),
-                row=row,
-                col=col,
-            )
-
-    # Update layout for the whole figure
-    fig.update_layout(
-        title="",
-        xaxis_title="",
-        yaxis_title="",
-        showlegend=True,
-        legend=dict(
-            title="",
-            orientation="h",
-            yanchor="bottom",
-            y=-0.25,  # Position the legend below the plot
-            xanchor="center",
-            x=0.5,
-            font=dict(size=12),
-        ),
-    )
-
-    # Update x-axis ticks to increase by 1 year
-    fig.update_xaxes(
-        tickmode="linear",
-        tick0=plot_start_date,
-        dtick=1,  # Set tick increment to 1 year
-    )
-
-    return fig
-
-
 def plot_scenario_output_ranges_by_col(
     scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
     plot_start_date: float = 2025.0,
@@ -915,7 +703,12 @@ def plot_scenario_output_ranges_by_col(
     }
 
     # Define the scenario titles manually
-    y_axis_titles = ["Status-quo scenario", "Scenario 1", "Scenario 2", "Scenario 3"]
+    y_axis_titles = [
+        "<i>'Status-quo'</i> scenario",
+        "Scenario 1",
+        "Scenario 2",
+        "Scenario 3",
+    ]
 
     # Create the subplots without shared y-axis
     fig = make_subplots(
@@ -925,7 +718,7 @@ def plot_scenario_output_ranges_by_col(
         vertical_spacing=0.05,
         horizontal_spacing=0.05,
         column_titles=[
-            "<b>TB incidence (per 100,000 populations)</b>",
+            "<b>TB incidence (/100,000/y)</b>",
             "<b>TB deaths</b>",
         ],  # Titles for columns
     )
@@ -1064,7 +857,7 @@ def plot_scenario_output_ranges_by_col(
 
             fig.update_yaxes(
                 title_text=f"<b>{display_name}</b>",
-                title_font=dict(size=10),
+                title_font=dict(size=12),
                 row=row,
                 col=1,
             )
@@ -1197,9 +990,10 @@ def plot_detection_scenarios_comparison_box(
         barmode="group",
         height=320,  # Adjust height based on the number of rows
         margin=dict(
-            l=20, r=5, t=30, b=40
+            l=10, r=5, t=30, b=40
         ),  # Tight layout with more bottom margin for legend
         yaxis=dict(
+            tickfont=dict(size=12),
             tickangle=-45,  # Rotate y-axis labels by 45 degrees
             categoryorder="array",  # Ensure the order follows the scenarios
             categoryarray=[
@@ -1211,12 +1005,11 @@ def plot_detection_scenarios_comparison_box(
             title="",
             orientation="h",
             yanchor="bottom",
-            y=-0.3,  # Position the legend below the plot
+            y=-0.2,  # Position the legend below the plot
             xanchor="center",
             x=0.5,
             itemsizing="constant",  # Consistent item sizing
             traceorder="normal",  # Keep the legend order as per the traces added
         ),
     )
-
     return fig

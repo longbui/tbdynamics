@@ -28,9 +28,6 @@ bcg_multiplier_dict = {
     "70": 1.0,
 }
 
-PLOT_START_DATE = 1800
-PLOT_END_DATE = 2035
-
 indicator_names = {
     "total_population": "Population size",
     "notification": "Number of TB notifications",
@@ -45,14 +42,14 @@ indicator_names = {
 }
 
 indicator_legends = {
-        "prevalence_smear_positive": "National prevalence survey",
-        "adults_prevalence_pulmonary": "National prevalence survey ",
-        "incidence": "WHO's estimates",
-        "mortality_raw": "WHO's estimates",
-        "notification": "Reported to WHO",
-        # "percentage_latent": "Ding et al. (2022)",
-        "total_population": "National census"
-    }
+    "prevalence_smear_positive": "National prevalence survey",
+    "adults_prevalence_pulmonary": "National prevalence surveys",
+    "incidence": "WHO's estimates",
+    # "mortality_raw": "WHO's estimates",
+    "notification": "Reported to WHO",
+    "percentage_latent": "Ding et al. (2022)",
+    "total_population": "National census",
+}
 
 params_name = {
     "contact_rate": "Transmission scaling factor",
@@ -74,28 +71,27 @@ quantiles = [0.025, 0.25, 0.5, 0.75, 0.975]
 
 
 scenario_names = {
-    'base_scenario': 'Baseline scenario',
-    'increase_case_detection_by_2_0': 'Scenario 1',
-    'increase_case_detection_by_5_0': 'Scenario 2',
-    'increase_case_detection_by_12_0': 'Scenario 3'
+    "base_scenario": "Status-quo scenario",
+    "increase_case_detection_by_2_0": "Scenario 1",
+    "increase_case_detection_by_5_0": "Scenario 2",
+    "increase_case_detection_by_12_0": "Scenario 3",
 }
 
 covid_configs = {
-        'no_covid': {
-            "detection_reduction": False,
-            "contact_reduction": False
-        },  # No reduction
-        'detection_and_contact_reduction': {
-            "detection_reduction": True,
-            "contact_reduction": True
-        },  # With detection + contact reduction
-        'case_detection_reduction_only': {
-            "detection_reduction": True,
-            "contact_reduction": False
-        },  # No contact reduction
-        'contact_reduction_only': {
-            "detection_reduction": False,
-            "contact_reduction": True
-        }  # Only contact reduction
-    }
-
+    "no_covid": {
+        "detection_reduction": False,
+        "contact_reduction": False,
+    },  # No reduction
+    "detection_and_contact_reduction": {
+        "detection_reduction": True,
+        "contact_reduction": True,
+    },  # With detection + contact reduction
+    "case_detection_reduction_only": {
+        "detection_reduction": True,
+        "contact_reduction": False,
+    },  # No contact reduction
+    "contact_reduction_only": {
+        "detection_reduction": False,
+        "contact_reduction": True,
+    },  # Only contact reduction
+}
