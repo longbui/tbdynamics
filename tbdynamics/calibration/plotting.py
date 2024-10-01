@@ -122,7 +122,7 @@ def plot_output_ranges(
 
         # Set plot_start_date to 2005 if the indicator is "prevalence_smear_positive"
         current_plot_start_date = (
-            2006 if ind == "prevalence_smear_positive" else plot_start_date
+            2005 if ind == "prevalence_smear_positive" else plot_start_date
         )
 
         # Filter data by date range

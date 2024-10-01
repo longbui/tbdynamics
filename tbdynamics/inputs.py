@@ -6,6 +6,7 @@ import numpy as np
 BASE_PATH = Path(__file__).parent.parent.resolve()
 DATA_PATH = BASE_PATH / "data"
 INPUT_PATH = DATA_PATH / "inputs"
+DOCS_PATH = BASE_PATH / "docs"
 
 
 def get_birth_rate():
