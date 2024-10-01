@@ -23,8 +23,8 @@ prop_smear_positive:
 incidence:
   2022: [176.0, 121.0, 251.0]
 
-percentage_latent:
-  2019: 43.0
+# percentage_latent:
+#   2019: 43.0
 
 mortality_raw:
   2018: 13850.0

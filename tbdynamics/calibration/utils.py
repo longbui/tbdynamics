@@ -385,10 +385,10 @@ def calculate_notifications_for_covid(
         }  # Only contact reduction
     }
 
-    scenario_outputs = {}
+    covid_outputs = {}
 
     # Loop through each scenario in covid_configs
-    for scenario_name, covid_effects in covid_configs.items():
+    for covid_name, covid_effects in covid_configs.items():
         # Run the model for the current scenario
         bcm = get_bcm(params, covid_effects)
         model_results = esamp.model_results_for_samples(idata_extract, bcm)
@@ -405,12 +405,12 @@ def calculate_notifications_for_covid(
             indicator_outputs[notification_indicator] = scenario_quantiles[notification_indicator]
 
         # Store the outputs and ll_res in the dictionary with the scenario name as the key
-        scenario_outputs[scenario_name] = {
+        covid_outputs[covid_name] = {
             "indicator_outputs": indicator_outputs,
             "ll_res": ll_res
         }
 
-    return scenario_outputs
+    return covid_outputs
 
 def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     """

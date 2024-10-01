@@ -9,6 +9,7 @@ from typing import List, Dict
 from tbdynamics.constants import indicator_names, indicator_legends, quantiles
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
 from tbdynamics.constants import indicator_names, scenario_names
+from tbdynamics.calibration.utils import calculate_loo_for_covid
 
 
 # Define the custom template
@@ -318,7 +319,7 @@ def plot_output_ranges(
 
 
 def plot_outputs_for_covid(
-    scenario_outputs: Dict[str, Dict[str, pd.DataFrame]],
+    covid_outputs: Dict[str, Dict[str, pd.DataFrame]],
     target_data: Dict[str, pd.Series],
     plot_start_date: int = 2011,
     plot_end_date: int = 2024,
@@ -326,30 +327,33 @@ def plot_outputs_for_covid(
 ) -> go.Figure:
     """
     Plot the "notification" indicator for each scenario in a 2x2 grid with subplot titles
-    based on configuration keys and include target points.
+    based on configuration keys, include target points, and show LOO-IC in the bottom left.
 
     Args:
-        scenario_outputs: Dictionary containing outputs for each scenario.
+        covid_outputs: Dictionary containing outputs for each scenario.
         target_data: Calibration targets.
         plot_start_date: Start year for the plot.
         plot_end_date: End year for the plot.
         max_alpha: Maximum alpha value to use in patches.
 
     Returns:
-        A Plotly figure with all scenarios plotted in a 2x2 grid.
+        A Plotly figure with all scenarios plotted in a 2x2 grid, with LOO-IC values annotated.
     """
 
     # Custom titles for each subplot
-    scenario_titles = {
+    covid_titles = {
         "no_covid": "Assumption 1",
         "case_detection_reduction_only": "Assumption 2",
         "contact_reduction_only": "Assumption 3",
         "detection_and_contact_reduction": "Assumption 4",
     }
 
+    # Calculate the LOO-IC for each scenario
+    loo_results = calculate_loo_for_covid(covid_outputs)
+
     # Define the 2x2 grid
     n_cols = 2
-    n_rows = int(np.ceil(len(scenario_titles) / n_cols))
+    n_rows = int(np.ceil(len(covid_titles) / n_cols))
 
     # Create the subplot figure
     fig = make_subplots(
@@ -358,18 +362,18 @@ def plot_outputs_for_covid(
         vertical_spacing=0.1,
         horizontal_spacing=0.07,
         subplot_titles=[
-            f"<b>{scenario_titles.get(scenario_name, scenario_name.replace('_', ' ').capitalize())}</b>"
-            for scenario_name in scenario_titles.keys()
+            f"<b>{covid_titles.get(scenario_name, scenario_name.replace('_', ' ').capitalize())}</b>"
+            for scenario_name in covid_titles.keys()
         ],
     )
     for annotation in fig["layout"]["annotations"]:
         annotation["font"] = dict(size=12)  # Set font size for titles
 
     # Loop through each scenario and plot it on the grid
-    for i, (scenario_name, title) in enumerate(scenario_titles.items()):
+    for i, (scenario_name, title) in enumerate(covid_titles.items()):
         row = i // n_cols + 1
         col = i % n_cols + 1
-        quantile_outputs = scenario_outputs[scenario_name]["indicator_outputs"]
+        quantile_outputs = covid_outputs[scenario_name]["indicator_outputs"]
         data = quantile_outputs["notification"]
 
         # Filter data by date range
@@ -432,6 +436,20 @@ def plot_outputs_for_covid(
                 col=col,
             )
 
+        # Add LOO-IC annotation to the bottom left of the subplot
+        loo_ic = loo_results.get(scenario_name, "N/A")
+        fig.add_annotation(
+            text=f"Loo-IC: {loo_ic:.2f}",
+            xref=f"x{i+1}",  # Refers to the x-axis of the current subplot
+            yref=f"y{i+1}",  # Refers to the y-axis of the current subplot
+            x=plot_start_date,
+            y=0.1,  # Place it near the bottom left
+            showarrow=False,
+            font=dict(size=12, color="black"),
+            xanchor="left",
+            yanchor="bottom",
+        )
+
     # Update layout for the whole figure
     fig.update_layout(
         title="",
@@ -451,6 +469,7 @@ def plot_outputs_for_covid(
     )
 
     return fig
+
 
 
 def plot_covid_configs_comparison(
@@ -576,7 +595,9 @@ def plot_covid_configs_comparison(
     return fig
 
 
-def plot_covid_configs_comparison_box(diff_quantiles, plot_type="abs"):
+def plot_covid_configs_comparison_box(
+    diff_quantiles: Dict[str, Dict[str, pd.DataFrame]], plot_type: str = "abs"
+):
     """
     Plot the median differences with error bars indicating the range from 0.025 to 0.975 quantiles
     for given indicators across multiple years in a single plot.
@@ -1083,7 +1104,10 @@ def plot_scenario_output_ranges_by_col(
     return fig
 
 
-def plot_detection_scenarios_comparison_box(diff_quantiles, plot_type="abs"):
+def plot_detection_scenarios_comparison_box(
+    diff_quantiles: Dict[str, Dict[str, Dict[str, pd.DataFrame]]],
+    plot_type: str = "abs",
+):
     """
     Plot the quantile differences for the fixed indicators across multiple scenarios.
 
