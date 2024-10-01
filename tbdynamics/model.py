@@ -80,9 +80,9 @@ def build_model(
         "infect_death", 1.0, "infectious"
     )  # Placeholder to adjust later in organ stratification
     age_strat = get_age_strat(
-        compartments,
-        infectious_compartments,
-        age_strata,
+        compartments,  # I think this should just be an import in the age stratification file too
+        infectious_compartments,  # Also this
+        age_strata,  # Also this
         death_df,
         fixed_params,
         matrix,
