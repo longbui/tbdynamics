@@ -10,7 +10,13 @@ from summer2.parameters import Parameter, Function, Time
 
 from .utils import triangle_wave_func
 from .inputs import get_birth_rate, get_death_rate, process_death_rate
-from .constants import organ_strata
+from .constants import (
+    compartments,
+    infectious_compartments,
+    latent_compartments,
+    age_strata,
+    organ_strata,
+)
 from .outputs import request_model_outputs
 from .strats import get_age_strat, get_organ_strat
 
@@ -20,10 +26,6 @@ DATA_PATH = BASE_PATH / "data"
 
 
 def build_model(
-    compartments: List[str],
-    latent_compartments: List[str],
-    infectious_compartments: List[str],
-    age_strata: List[int],
     fixed_params: Dict[str, any],
     matrix,
     covid_effects: Dict[str, bool],
@@ -215,10 +217,10 @@ def seed_infectious(model: CompartmentalModel):
         Parameter("seed_duration"),
         Parameter("seed_num"),
     ]
-    voc_seed_func = Function(triangle_wave_func, seed_args)
+    seed_func = Function(triangle_wave_func, seed_args)
     model.add_importation_flow(
         "seed_infectious",
-        voc_seed_func,
+        seed_func,
         "infectious",
         split_imports=True,
     )

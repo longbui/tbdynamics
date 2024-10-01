@@ -4,20 +4,18 @@ import estival.targets as est
 from estival.sampling import tools as esamp
 import arviz as az
 import pandas as pd
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from tbdynamics.model import build_model
 from tbdynamics.inputs import load_params, load_targets, matrix
-from tbdynamics.constants import (
-    age_strata,
-    compartments,
-    latent_compartments,
-    infectious_compartments,
-    quantiles
-)
+from tbdynamics.constants import quantiles
+
 from numpyro import distributions as dist
 import numpy as np
 
-def get_bcm(params, covid_effects = None, improved_detection_multiplier = None) -> BayesianCompartmentalModel:
+
+def get_bcm(
+    params, covid_effects=None, improved_detection_multiplier=None
+) -> BayesianCompartmentalModel:
     """
     Constructs and returns a Bayesian Compartmental Model.
     Parameters:
@@ -32,14 +30,7 @@ def get_bcm(params, covid_effects = None, improved_detection_multiplier = None) 
     params = params or {}
     fixed_params = load_params()
     tb_model = build_model(
-        compartments,
-        latent_compartments,
-        infectious_compartments,
-        age_strata,
-        fixed_params,
-        matrix,
-        covid_effects,
-        improved_detection_multiplier
+        fixed_params, matrix, covid_effects, improved_detection_multiplier
     )
     priors = get_all_priors(covid_effects)
     targets = get_targets()
@@ -247,6 +238,7 @@ def calculate_covid_diff_quantiles(
 
     return {"abs": diff_quantiles_abs, "rel": diff_quantiles_rel}
 
+
 def calculate_covid_diff_cum_quantiles(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
@@ -294,28 +286,34 @@ def calculate_covid_diff_cum_quantiles(
 
         # Filter the results to include only the rows where the index (year) is an integer
         yearly_data = spaghetti_res.loc[
-            (spaghetti_res.index >= cumulative_start_time) & 
-            (spaghetti_res.index % 1 == 0)
+            (spaghetti_res.index >= cumulative_start_time)
+            & (spaghetti_res.index % 1 == 0)
         ]
 
         # Calculate cumulative sums for each sample
-        cumulative_diseased_yearly = yearly_data['incidence_raw'].cumsum()
-        cumulative_deaths_yearly = yearly_data['mortality_raw'].cumsum()
+        cumulative_diseased_yearly = yearly_data["incidence_raw"].cumsum()
+        cumulative_deaths_yearly = yearly_data["mortality_raw"].cumsum()
 
         # Store the cumulative results in the list
-        scenario_results.append({
-            "cumulative_diseased": cumulative_diseased_yearly,
-            "cumulative_deaths": cumulative_deaths_yearly,
-        })
+        scenario_results.append(
+            {
+                "cumulative_diseased": cumulative_diseased_yearly,
+                "cumulative_deaths": cumulative_deaths_yearly,
+            }
+        )
 
     # Calculate the differences based on the covid_analysis value
     abs_diff = {
-        "cumulative_diseased": scenario_results[covid_analysis]["cumulative_diseased"] - scenario_results[0]["cumulative_diseased"],
-        "cumulative_deaths": scenario_results[covid_analysis]["cumulative_deaths"] - scenario_results[0]["cumulative_deaths"]
+        "cumulative_diseased": scenario_results[covid_analysis]["cumulative_diseased"]
+        - scenario_results[0]["cumulative_diseased"],
+        "cumulative_deaths": scenario_results[covid_analysis]["cumulative_deaths"]
+        - scenario_results[0]["cumulative_deaths"],
     }
     rel_diff = {
-        "cumulative_diseased": abs_diff["cumulative_diseased"] / scenario_results[0]["cumulative_diseased"],
-        "cumulative_deaths": abs_diff["cumulative_deaths"] / scenario_results[0]["cumulative_deaths"]
+        "cumulative_diseased": abs_diff["cumulative_diseased"]
+        / scenario_results[0]["cumulative_diseased"],
+        "cumulative_deaths": abs_diff["cumulative_deaths"]
+        / scenario_results[0]["cumulative_deaths"],
     }
 
     # Calculate quantiles for absolute and relative differences
@@ -361,28 +359,28 @@ def calculate_notifications_for_covid(
         indicators: List of indicators to calculate outputs for.
 
     Returns:
-        A dictionary where each key corresponds to a scenario in covid_configs and the value is 
+        A dictionary where each key corresponds to a scenario in covid_configs and the value is
         another dictionary containing DataFrames with outputs for the given indicators.
     """
 
     # Define the covid_configs inside the function
     covid_configs = {
-        'no_covid': {
+        "no_covid": {
             "detection_reduction": False,
-            "contact_reduction": False
+            "contact_reduction": False,
         },  # No reduction
-        'detection_and_contact_reduction': {
+        "detection_and_contact_reduction": {
             "detection_reduction": True,
-            "contact_reduction": True
+            "contact_reduction": True,
         },  # With detection + contact reduction
-        'case_detection_reduction_only': {
+        "case_detection_reduction_only": {
             "detection_reduction": True,
-            "contact_reduction": False
+            "contact_reduction": False,
         },  # No contact reduction
-        'contact_reduction_only': {
+        "contact_reduction_only": {
             "detection_reduction": False,
-            "contact_reduction": True
-        }  # Only contact reduction
+            "contact_reduction": True,
+        },  # Only contact reduction
     }
 
     covid_outputs = {}
@@ -393,24 +391,31 @@ def calculate_notifications_for_covid(
         bcm = get_bcm(params, covid_effects)
         model_results = esamp.model_results_for_samples(idata_extract, bcm)
         spaghetti_res = model_results.results
-        ll_res = model_results.extras  # Extract additional results (e.g., log-likelihoods)
+        ll_res = (
+            model_results.extras
+        )  # Extract additional results (e.g., log-likelihoods)
         scenario_quantiles = esamp.quantiles_for_results(spaghetti_res, quantiles)
 
         # Initialize a dictionary to store indicator-specific outputs
         indicator_outputs = {}
 
-         # Extract the results only for the "notification" indicator
-        notification_indicator = "notification"  # Replace with the exact name of the notification indicator
+        # Extract the results only for the "notification" indicator
+        notification_indicator = (
+            "notification"  # Replace with the exact name of the notification indicator
+        )
         if notification_indicator in scenario_quantiles:
-            indicator_outputs[notification_indicator] = scenario_quantiles[notification_indicator]
+            indicator_outputs[notification_indicator] = scenario_quantiles[
+                notification_indicator
+            ]
 
         # Store the outputs and ll_res in the dictionary with the scenario name as the key
         covid_outputs[covid_name] = {
             "indicator_outputs": indicator_outputs,
-            "ll_res": ll_res
+            "ll_res": ll_res,
         }
 
     return covid_outputs
+
 
 def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     """
@@ -426,7 +431,7 @@ def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     # Ensure log_likelihoods is a 2D array
     if log_likelihoods.ndim == 1:
         log_likelihoods = log_likelihoods[:, np.newaxis]
-    
+
     n_samples, n_observations = log_likelihoods.shape
 
     # Calculate the log of the mean of the exponential of the log-likelihoods excluding each data point
@@ -438,7 +443,10 @@ def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     loo_ic = -2 * np.sum(loo_log_likelihoods)
     return loo_ic
 
-def calculate_loo_for_covid(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, float]:
+
+def calculate_loo_for_covid(
+    covid_outputs: Dict[str, Dict[str, pd.DataFrame]]
+) -> Dict[str, float]:
     """
     Calculate LOO-IC for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
 
@@ -451,19 +459,20 @@ def calculate_loo_for_covid(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -
     loo_results = {}
 
     for scenario, results in covid_outputs.items():
-        ll_res = results['ll_res']  # Get the DataFrame containing log-likelihoods
+        ll_res = results["ll_res"]  # Get the DataFrame containing log-likelihoods
 
         # Calculate LOO-IC only for the 'loglikelihood' column
-        if 'loglikelihood' in ll_res.columns:
-            loo_ic_value = loo_cross_validation(ll_res['loglikelihood'].values)
+        if "loglikelihood" in ll_res.columns:
+            loo_ic_value = loo_cross_validation(ll_res["loglikelihood"].values)
             loo_results[scenario] = loo_ic_value
 
     return loo_results
 
+
 def calculate_scenario_outputs(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
-    indicators: List[str] = ['incidence', 'mortality_raw'],
+    indicators: List[str] = ["incidence", "mortality_raw"],
     detection_multipliers: List[float] = [2.0, 5.0, 12.0],
 ) -> Dict[str, Dict[str, pd.DataFrame]]:
     """
@@ -508,6 +517,7 @@ def calculate_scenario_outputs(
 
     return scenario_outputs
 
+
 def calculate_scenario_diff_cum_quantiles(
     params: Dict[str, float],
     idata_extract: az.InferenceData,
@@ -546,11 +556,10 @@ def calculate_scenario_diff_cum_quantiles(
 
     # Calculate cumulative sums for the base scenario
     yearly_data_base = base_results.loc[
-        (base_results.index >= cumulative_start_time) & 
-        (base_results.index % 1 == 0)
+        (base_results.index >= cumulative_start_time) & (base_results.index % 1 == 0)
     ]
-    cumulative_diseased_base = yearly_data_base['incidence_raw'].cumsum()
-    cumulative_deaths_base = yearly_data_base['mortality_raw'].cumsum()
+    cumulative_diseased_base = yearly_data_base["incidence_raw"].cumsum()
+    cumulative_deaths_base = yearly_data_base["mortality_raw"].cumsum()
 
     # Store results for each detection multiplier
     detection_diff_results = {}
@@ -562,11 +571,11 @@ def calculate_scenario_diff_cum_quantiles(
 
         # Calculate cumulative sums for each scenario
         yearly_data = scenario_result.loc[
-            (scenario_result.index >= cumulative_start_time) & 
-            (scenario_result.index % 1 == 0)
+            (scenario_result.index >= cumulative_start_time)
+            & (scenario_result.index % 1 == 0)
         ]
-        cumulative_diseased = yearly_data['incidence_raw'].cumsum()
-        cumulative_deaths = yearly_data['mortality_raw'].cumsum()
+        cumulative_diseased = yearly_data["incidence_raw"].cumsum()
+        cumulative_deaths = yearly_data["mortality_raw"].cumsum()
 
         # Calculate differences compared to the base scenario
         abs_diff = {
@@ -574,7 +583,8 @@ def calculate_scenario_diff_cum_quantiles(
             "cumulative_deaths": cumulative_deaths - cumulative_deaths_base,
         }
         rel_diff = {
-            "cumulative_diseased": abs_diff["cumulative_diseased"] / cumulative_diseased_base,
+            "cumulative_diseased": abs_diff["cumulative_diseased"]
+            / cumulative_diseased_base,
             "cumulative_deaths": abs_diff["cumulative_deaths"] / cumulative_deaths_base,
         }
 
@@ -585,7 +595,9 @@ def calculate_scenario_diff_cum_quantiles(
         for ind in ["cumulative_diseased", "cumulative_deaths"]:
             diff_quantiles_df_abs = pd.DataFrame(
                 {
-                    quantile: [abs_diff[ind].loc[year].quantile(quantile) for year in years]
+                    quantile: [
+                        abs_diff[ind].loc[year].quantile(quantile) for year in years
+                    ]
                     for quantile in quantiles
                 },
                 index=years,
@@ -593,7 +605,9 @@ def calculate_scenario_diff_cum_quantiles(
 
             diff_quantiles_df_rel = pd.DataFrame(
                 {
-                    quantile: [rel_diff[ind].loc[year].quantile(quantile) for year in years]
+                    quantile: [
+                        rel_diff[ind].loc[year].quantile(quantile) for year in years
+                    ]
                     for quantile in quantiles
                 },
                 index=years,
