@@ -412,59 +412,6 @@ def calculate_notifications_for_covid(
 
     return scenario_outputs
 
-def calculate_dic(log_likelihoods: np.ndarray) -> Tuple[float, float]:
-    """
-    Calculate the Deviance Information Criterion (DIC) and effective number of parameters (pD) given log-likelihood values.
-
-    Args:
-        log_likelihoods: Array of log-likelihood values.
-
-    Returns:
-        A tuple containing the DIC value and the effective number of parameters (pD).
-    """
-    # Calculate deviance for each sample
-    deviance = -2 * log_likelihoods
-    
-    # Calculate mean deviance
-    mean_deviance = np.mean(deviance)
-    
-    # Calculate deviance at the mean of the log-likelihoods
-    mean_log_likelihood = np.mean(log_likelihoods)
-    deviance_at_mean = -2 * mean_log_likelihood
-    
-    # Calculate effective number of parameters pD
-    pD = mean_deviance - deviance_at_mean
-    
-    # Calculate DIC
-    dic = mean_deviance + pD
-    
-    return dic, pD
-
-def calculate_dic_for_scenarios(covid_outputs: Dict[str, Dict[str, pd.DataFrame]]) -> pd.DataFrame:
-    """
-    Calculate DIC and pD for each scenario based on the 'loglikelihood' values in 'll_res' for each scenario.
-
-    Args:
-        covid_outputs: Dictionary containing outputs for each scenario, including log-likelihoods.
-
-    Returns:
-        A DataFrame where each row corresponds to a scenario, with columns for DIC and pD values.
-    """
-    results = []
-
-    for scenario, results_dict in covid_outputs.items():
-        ll_res = results_dict['ll_res']  # Get the DataFrame containing log-likelihoods
-
-        # Calculate DIC and pD only for the 'loglikelihood' column
-        if 'loglikelihood' in ll_res.columns:
-            dic_value, pD_value = calculate_dic(ll_res['ll_notification'].values)
-            results.append({'Scenario': scenario, 'DIC': dic_value, 'pD': pD_value})
-
-    # Convert results to DataFrame
-    results_df = pd.DataFrame(results)
-
-    return results_df
-
 def loo_cross_validation(log_likelihoods: np.ndarray) -> float:
     """
     Calculate the Leave-One-Out Information Criterion (LOO-IC).
