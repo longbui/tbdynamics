@@ -23,7 +23,7 @@ def tabulate_calib_results(
     table = az.summary(idata)
 
     # Filter out dispersion parameters
-    table = table[~table.index.str.contains("_dispersion")]
+    table = table[~(table.index.str.contains("_dispersion") | (table.index == "contact_reduction"))]
 
     # Round and format the relevant columns
     for col_to_round in [
@@ -71,12 +71,12 @@ def plot_post_prior_comparison(idata, priors, params_name):
         The figure object.
     """
     # Filter priors to exclude those containing '_dispersion'
-    req_vars = [var for var in priors.keys() if "_dispersion" not in var]
+    req_vars = [var for var in priors.keys() if "_dispersion" not in var and var != "contact_reduction"]
     num_vars = len(req_vars)
     num_rows = (num_vars + 1) // 2  # Ensure even distribution across two columns
 
     # Set figure size to match A4 page width (8.27 inches) in portrait mode and adjust height based on rows
-    fig, axs = plt.subplots(num_rows, 2, figsize=(8.27, 2.3 * num_rows), gridspec_kw={'width_ratios': [1.5, 1.5]})  # A4 width in portrait mode
+    fig, axs = plt.subplots(num_rows, 2, figsize=(28, 2.3 * num_rows), gridspec_kw={'width_ratios': [1.5, 1.5]})  # A4 width in portrait mode
     axs = axs.ravel()
 
     for i_ax, ax in enumerate(axs):
@@ -124,8 +124,9 @@ def plot_post_prior_comparison(idata, priors, params_name):
 
             # Set the title using the descriptive name from params_name
             title = params_name.get(var_name, var_name)  # Use var_name if not in params_name
-            ax.set_title(title, fontsize=12, fontname='Arial')  # Set title to Arial 12
-            ax.legend()
+            ax.set_title(title, fontsize=30, fontname='Arial')  # Set title to Arial 12
+            if i_ax == 0:
+                ax.legend()
         else:
             ax.axis("off")  # Turn off empty subplots if the number of req_vars is odd
 
@@ -145,12 +146,12 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
     """
     # Filter out parameters containing '_dispersion'
     filtered_posterior = idata.posterior.drop_vars(
-        [var for var in idata.posterior.data_vars if "_dispersion" in var]
+        [var for var in idata.posterior.data_vars if "_dispersion" in var or var == "contact_reduction"]
     )
 
     # Plot trace plots with the filtered parameters
     trace_fig = az.plot_trace(
-        filtered_posterior, figsize=(16, 3.1 * len(filtered_posterior.data_vars))
+        filtered_posterior, figsize=(28, 3.1 * len(filtered_posterior.data_vars))
     )
 
     # Set titles for each row of plots
@@ -163,7 +164,7 @@ def plot_trace(idata: az.InferenceData, params_name: dict):
             var_name, var_name
         )  # Get the title from params_name or default to var_name
         row_axes[0].set_title(
-            title, fontsize=14, loc="center"
+            title, fontsize=30, loc="center"
         )  # Set title for the first column
         row_axes[1].set_title("")  # Clear the title for the second column
 
