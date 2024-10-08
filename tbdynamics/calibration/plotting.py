@@ -6,9 +6,14 @@ import plotly.express as px
 import plotly.io as pio
 from typing import List, Dict
 
-from tbdynamics.constants import indicator_names, indicator_legends, quantiles
+from tbdynamics.constants import (
+    indicator_names,
+    indicator_legends,
+    quantiles,
+    scenario_names,
+)
 from tbdynamics.utils import get_row_col_for_subplots, get_standard_subplot_fig
-from tbdynamics.constants import indicator_names, scenario_names
+from tbdynamics.calibration.utils import calculate_waic_comparison
 
 
 # Define the custom template
@@ -346,11 +351,9 @@ def plot_outputs_for_covid(
         "contact": "Assumption 3",
         "detection_and_contact": "Assumption 4",
     }
+    # Calculate waic
+    waic_results = calculate_waic_comparison(covid_outputs)
 
-    # Calculate the LOO-IC for each scenario
-    # loo_results = calculate_loo_for_covid(covid_outputs)
-
-    # Define the 2x2 grid
     n_cols = 2
     n_rows = int(np.ceil(len(covid_titles) / n_cols))
 
@@ -420,34 +423,44 @@ def plot_outputs_for_covid(
             )
 
         # Add target points if available
-        
+
         targets = target_data["notification"]
         fig.add_trace(
-                go.Scatter(
-                    x=targets.index,
-                    y=targets,
-                    mode="markers",
-                    marker=dict(size=4, color="red"),
-                    name="Target",
-                    showlegend=False,  # Hide legend for targets
-                ),
-                row=row,
-                col=col,
-            )
+            go.Scatter(
+                x=targets.index,
+                y=targets,
+                mode="markers",
+                marker=dict(size=4, color="red"),
+                name="Target",
+                showlegend=False,  # Hide legend for targets
+            ),
+            row=row,
+            col=col,
+        )
 
-        # Add LOO-IC annotation to the bottom left of the subplot
-        # loo_ic = loo_results.get(scenario_name, "N/A")
-        # fig.add_annotation(
-        #     text=f"Loo-IC: {loo_ic:.2f}",
-        #     xref=f"x{i+1}",  # Refers to the x-axis of the current subplot
-        #     yref=f"y{i+1}",  # Refers to the y-axis of the current subplot
-        #     x=plot_start_date,
-        #     y=0.1,  # Place it near the bottom left
-        #     showarrow=False,
-        #     font=dict(size=12, color="black"),
-        #     xanchor="left",
-        #     yanchor="bottom",
-        # )
+        # Add WAIC annotation to the bottom left of the subplot
+        elpd_waic_value = (
+            waic_results.loc[scenario_name, "elpd_waic"]
+            if scenario_name in waic_results.index
+            else "N/A"
+        )
+        fig.add_annotation(
+            text=(
+                f"ELPD-WAIC: {elpd_waic_value:.3f}"
+                if elpd_waic_value != "N/A"
+                else "ELPD-WAIC: N/A"
+            ),
+            xref=f"x{i+1}",  # Refers to the x-axis of the current subplot
+            yref=f"y{i+1}",  # Refers to the y-axis of the current subplot
+            x=plot_start_date + 0.5,  # Align the annotation with the start date
+            y=5000,  # Place it near the bottom left
+            showarrow=False,
+            font=dict(size=12, color="black"),
+            xanchor="left",
+            yanchor="bottom",
+            bordercolor="black",  # Set the border color
+            borderwidth=1,  # Set the border width (1px here)
+        )
 
     # Update layout for the whole figure
     fig.update_layout(
@@ -457,7 +470,7 @@ def plot_outputs_for_covid(
         showlegend=False,
         height=600,  # Set the figure height to 600 pixels
         margin=dict(l=10, r=5, t=30, b=40),
-        font=dict(size=8),
+        # font=dict(size=8),
     )
 
     # Update all x-axes to have the same range based on plot_start_date and plot_end_date
@@ -468,7 +481,6 @@ def plot_outputs_for_covid(
     )
 
     return fig
-
 
 
 def plot_covid_configs_comparison(
